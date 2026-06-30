@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ormguard"
+version = "0.1.0"
+description = "Fail-fast schema validation for SQLAlchemy — Hibernate's ddl-auto=validate for Python."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "JuneSoo" }]
+keywords = ["sqlalchemy", "alembic", "schema", "validation", "drift", "fastapi", "orm"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Database",
+    "Framework :: FastAPI",
+]
+dependencies = ["SQLAlchemy>=1.4"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff"]
+
+[project.scripts]
+ormguard = "ormguard.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/JuneSoo/ormguard"
+
+[tool.hatch.build.targets.wheel]
+packages = ["ormguard"]
+
+[tool.ruff]
+line-length = 110
+
+[tool.pytest.ini_options]
+markers = [
+    "postgres: integration tests that require a real PostgreSQL (set DATABASE_URL)",
+]
+# Skip the postgres-marked tests in the default (SQLite-only) run.
+addopts = "-m 'not postgres'"
