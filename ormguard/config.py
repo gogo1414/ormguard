@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 
 from .model import (
     COLUMN_EXTRA,
+    INDEX_EXTRA,
+    INDEX_MISSING,
     NULLABLE_MISMATCH,
     TYPE_MISMATCH,
     Severity,
@@ -34,6 +36,7 @@ class Config:
     # Toggles.
     check_nullable: bool = True
     check_types: bool = False  # dialect-dependent; opt in once tuned for your DB.
+    check_indexes: bool = False  # dialect-dependent; opt in. Compares by column set + uniqueness.
     flag_extra_columns: bool = True  # DB columns not present on the entity.
 
     # Severity per kind — override to make e.g. nullable mismatches fatal.
@@ -42,6 +45,8 @@ class Config:
             COLUMN_EXTRA: Severity.WARN,
             NULLABLE_MISMATCH: Severity.WARN,
             TYPE_MISMATCH: Severity.WARN,
+            INDEX_MISSING: Severity.WARN,
+            INDEX_EXTRA: Severity.WARN,
         }
     )
 

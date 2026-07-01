@@ -24,6 +24,8 @@ COLUMN_MISSING = "column_missing"        # ORM column absent in DB  (the runtime
 COLUMN_EXTRA = "column_extra"            # DB column not mapped by any ORM entity
 NULLABLE_MISMATCH = "nullable_mismatch"  # NOT NULL / NULL disagreement
 TYPE_MISMATCH = "type_mismatch"          # column type disagreement (opt-in)
+INDEX_MISSING = "index_missing"          # ORM declares an index the DB lacks (opt-in)
+INDEX_EXTRA = "index_extra"              # DB has an index no ORM entity declares (opt-in)
 
 
 @dataclass(frozen=True)

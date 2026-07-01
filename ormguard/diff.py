@@ -7,6 +7,8 @@ from .config import Config
 from .model import (
     COLUMN_EXTRA,
     COLUMN_MISSING,
+    INDEX_EXTRA,
+    INDEX_MISSING,
     NULLABLE_MISMATCH,
     TABLE_MISSING,
     TYPE_MISMATCH,
@@ -94,6 +96,37 @@ def diff_schemas(
                         table=table,
                         column=cname,
                         detail="database column not mapped by any entity (silently unused)",
+                    )
+                )
+
+        # Indexes (opt-in), compared by column set + uniqueness.
+        if config.check_indexes:
+            for k in exp.indexes.keys() - act.indexes.keys():
+                idx = exp.indexes[k]
+                findings.append(
+                    Finding(
+                        severity=config.severity_for(INDEX_MISSING, Severity.WARN),
+                        kind=INDEX_MISSING,
+                        schema=schema,
+                        table=table,
+                        detail=(
+                            f"ORM declares an index on ({', '.join(idx.columns)})"
+                            f"{' unique' if idx.unique else ''} but the database has none"
+                        ),
+                    )
+                )
+            for k in act.indexes.keys() - exp.indexes.keys():
+                idx = act.indexes[k]
+                findings.append(
+                    Finding(
+                        severity=config.severity_for(INDEX_EXTRA, Severity.WARN),
+                        kind=INDEX_EXTRA,
+                        schema=schema,
+                        table=table,
+                        detail=(
+                            f"database has an index on ({', '.join(idx.columns)})"
+                            f"{' unique' if idx.unique else ''} not declared in the ORM"
+                        ),
                     )
                 )
 
