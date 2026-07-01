@@ -67,6 +67,14 @@ def main(argv: list[str] | None = None) -> int:
         "--warn-only", action="store_true",
         help="exit 0 even on errors (report only)",
     )
+    parser.add_argument(
+        "--notify-webhook",
+        help="POST the report to a Slack/Discord incoming webhook when drift is found",
+    )
+    parser.add_argument(
+        "--notify-on", choices=("error", "any"), default="error",
+        help="send the webhook on 'error' findings (default) or on 'any' finding",
+    )
     args = parser.parse_args(argv)
 
     if args.selfcheck:
@@ -94,6 +102,15 @@ def main(argv: list[str] | None = None) -> int:
     report = validate(engine, target, config)
 
     print(report.format_text())
+
+    if args.notify_webhook:
+        should_notify = report.has_errors() if args.notify_on == "error" else bool(report.findings)
+        if should_notify:
+            from .notify import notify_webhook
+
+            if not notify_webhook(args.notify_webhook, report):
+                print("ormguard: warning — webhook notification failed", file=sys.stderr)
+
     if report.has_errors() and not args.warn_only:
         return 1
     return 0
