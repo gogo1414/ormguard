@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._schema import ColumnInfo, TableInfo, type_to_string
+from ._schema import ColumnInfo, IndexInfo, TableInfo, type_to_string
 from .config import Config
 
 
@@ -26,5 +26,14 @@ def build_expected(metadata, dialect, config: Config) -> dict[tuple[str | None, 
                 nullable=bool(col.nullable),
                 primary_key=bool(col.primary_key),
             )
+
+        if config.check_indexes:
+            for idx in table.indexes:
+                cols = tuple(c.name for c in idx.columns)
+                if not cols or any(config.is_column_ignored(table.name, c) for c in cols):
+                    continue
+                index = IndexInfo(name=idx.name or "", columns=cols, unique=bool(idx.unique))
+                info.indexes[index.key] = index
+
         tables[info.key] = info
     return tables
