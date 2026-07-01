@@ -15,6 +15,10 @@ inputs:
     description: "Extra ormguard CLI flags, e.g. '--schema public --check-indexes'."
     required: false
     default: ""
+  notify-webhook:
+    description: "Slack/Discord incoming webhook to POST the report to when drift is found."
+    required: false
+    default: ""
   version:
     description: "pip install target for ormguard (e.g. 'ormguard==0.1.0', or a VCS URL until it's on PyPI)."
     required: false
@@ -33,8 +37,18 @@ runs:
     - shell: bash
       run: pip install "${{ inputs.version }}"
     - shell: bash
-      run: >-
-        python -m ormguard
-        --url "${{ inputs.database-url }}"
-        --metadata "${{ inputs.metadata }}"
-        ${{ inputs.args }}
+      # database-url and notify-webhook are passed via env so their secrets
+      # aren't rendered into the run command in the logs.
+      env:
+        ORMGUARD_DATABASE_URL: ${{ inputs.database-url }}
+        ORMGUARD_NOTIFY_WEBHOOK: ${{ inputs.notify-webhook }}
+        ORMGUARD_EXTRA_ARGS: ${{ inputs.args }}
+      run: |
+        extra=""
+        if [ -n "$ORMGUARD_NOTIFY_WEBHOOK" ]; then
+          extra="--notify-webhook $ORMGUARD_NOTIFY_WEBHOOK"
+        fi
+        python -m ormguard \
+          --url "$ORMGUARD_DATABASE_URL" \
+          --metadata "${{ inputs.metadata }}" \
+          $extra $ORMGUARD_EXTRA_ARGS

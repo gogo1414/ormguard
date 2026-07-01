@@ -106,6 +106,22 @@ Or drop in the GitHub Action — no install step needed:
 (Until ormguard is on PyPI, set `version:` to a VCS URL, e.g.
 `version: git+https://github.com/gogo1414/ormguard@main`.)
 
+Get a team-channel ping when drift is found — one webhook works for Slack or
+Discord (add `--notify-on any` to include warnings):
+
+```bash
+python -m ormguard --url "$DATABASE_URL" --metadata myapp.db:Base \
+  --notify-webhook "$SLACK_OR_DISCORD_WEBHOOK"
+```
+
+```yaml
+- uses: gogo1414/ormguard@v1
+  with:
+    database-url: ${{ secrets.DATABASE_URL }}
+    metadata: myapp.db:Base
+    notify-webhook: ${{ secrets.SLACK_WEBHOOK }}
+```
+
 ### Multi-tenant (one ORM, many databases)
 
 ```python
