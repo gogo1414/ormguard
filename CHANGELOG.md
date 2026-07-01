@@ -18,6 +18,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **v2 (offline replay), M3**: raw-SQL DDL parsing for `op.execute` via sqlglot
+  — CREATE/DROP TABLE and ALTER TABLE ADD/DROP/ALTER/RENAME COLUMN, including
+  `DO $$ ... $$` blocks. SQL that can't be interpreted is surfaced in
+  `catalog.unparsed` instead of being silently dropped. Adds `sqlglot` to the
+  `replay` extra.
+
 - **v2 (offline replay), M2**: tenant-aware replay. Inject a
   `(platform_type, database_name)` profile so conditional migrations execute
   the right branch (`op.get_bind().engine.url.database` /
