@@ -18,6 +18,9 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Reusable GitHub Action (`action.yml`): run ormguard in any repo's CI with a
+  few lines — inputs for `database-url`, `metadata`, extra `args`, install
+  `version`, and `python-version`. (#8)
 - Optional server-default validation (`Config(check_server_defaults=True)` /
   `--check-defaults`): emits `default_missing` / `default_extra` by comparing
   *presence* of a DB default (not its value, which is dialect-dependent),
