@@ -18,6 +18,10 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Webhook notifications: `--notify-webhook URL` (and `--notify-on error|any`)
+  POST the report to a Slack- or Discord-compatible incoming webhook when drift
+  is found — one payload works for both, standard library only, best-effort.
+  Also exposed as a `notify-webhook` input on the GitHub Action. (#22)
 - Reusable GitHub Action (`action.yml`): run ormguard in any repo's CI with a
   few lines — inputs for `database-url`, `metadata`, extra `args`, install
   `version`, and `python-version`. (#8)
