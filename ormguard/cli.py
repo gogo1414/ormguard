@@ -53,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--schema", action="append", default=None, help="restrict to schema (repeatable)")
     parser.add_argument("--check-types", action="store_true", help="also compare column types")
     parser.add_argument("--check-indexes", action="store_true", help="also compare indexes (opt-in)")
+    parser.add_argument(
+        "--check-foreign-keys", action="store_true", help="also compare foreign keys (opt-in)",
+    )
     parser.add_argument("--no-nullable", action="store_true", help="skip nullable comparison")
     parser.add_argument("--no-extra", action="store_true", help="do not flag DB-only columns")
     parser.add_argument("--ignore-table", action="append", default=[], help="table to skip (repeatable)")
@@ -75,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
         schemas=set(args.schema) if args.schema else None,
         check_types=args.check_types,
         check_indexes=args.check_indexes,
+        check_foreign_keys=args.check_foreign_keys,
         check_nullable=not args.no_nullable,
         flag_extra_columns=not args.no_extra,
         ignore_tables=set(args.ignore_table),

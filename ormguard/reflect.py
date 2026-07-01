@@ -10,8 +10,26 @@ from __future__ import annotations
 
 from sqlalchemy import inspect
 
-from ._schema import ColumnInfo, IndexInfo, TableInfo, type_to_string
+from ._schema import ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, type_to_string
 from .config import Config
+
+
+def _reflect_foreign_keys(inspector, info: TableInfo, name: str, schema: str | None, config: Config) -> None:
+    """Reflect real foreign keys into ``info.foreign_keys``."""
+    for fk in inspector.get_foreign_keys(name, schema=schema):
+        cols = tuple(fk.get("constrained_columns") or ())
+        referred_table = fk.get("referred_table")
+        if not cols or not referred_table:
+            continue
+        if any(config.is_column_ignored(name, c) for c in cols):
+            continue
+        info_fk = ForeignKeyInfo(
+            columns=cols,
+            referred_table=referred_table,
+            referred_columns=tuple(fk.get("referred_columns") or ()),
+            name=fk.get("name") or "",
+        )
+        info.foreign_keys[info_fk.key] = info_fk
 
 
 def _reflect_indexes(inspector, info: TableInfo, name: str, schema: str | None, config: Config) -> None:
@@ -75,6 +93,8 @@ def reflect_actual(
 
         if config.check_indexes:
             _reflect_indexes(inspector, info, name, schema, config)
+        if config.check_foreign_keys:
+            _reflect_foreign_keys(inspector, info, name, schema, config)
 
         actual[key] = info
     return actual

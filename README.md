@@ -113,15 +113,18 @@ print(format_matrix(reports))
 | `type_mismatch` | WARN (opt-in) | column type differs — off by default (dialect-dependent) |
 | `index_missing` | WARN (opt-in) | ORM declares an index the DB lacks — off by default |
 | `index_extra` | WARN (opt-in) | DB has an index not declared in the ORM — off by default |
+| `fk_missing` | WARN (opt-in) | ORM declares a foreign key the DB lacks — off by default |
+| `fk_extra` | WARN (opt-in) | DB has a foreign key not declared in the ORM — off by default |
 
 Configurable via `Config`: restrict schemas, ignore tables/columns, flip
-severities, toggle nullable/type/index/extra checks.
+severities, toggle nullable/type/index/foreign-key/extra checks.
 
 Index checks (`--check-indexes` / `Config(check_indexes=True)`) compare by column
 set and uniqueness — not by name — and skip indexes that merely back a primary
-key or unique constraint, keeping false positives low.
+key or unique constraint. Foreign-key checks (`--check-foreign-keys`) compare by
+local columns, referred table, and referred columns. Both keep false positives low.
 
-Out of scope for v1 (planned): foreign keys, defaults, check
+Out of scope for v1 (planned): defaults, check
 constraints, enums, and an **offline multi-tenant Alembic replay** mode that
 diffs ORM against the schema migrations *would* produce per tenant — without a
 database.
