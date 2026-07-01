@@ -1,15 +1,14 @@
-"""A stand-in for ``alembic.op`` that records structural operations into a
-Catalog instead of executing them against a database.
+"""A stand-in for ``alembic.op`` (and ``alembic.context``) that records
+structural operations into a Catalog instead of executing them against a DB.
 
-Injected into each migration module's globals as ``op`` before calling
-``upgrade()``. Only schema-affecting operations matter; data operations and
-constraints/indexes are accepted and ignored (they don't change column
-presence, which is what v1's diff cares about).
+Injected into each migration module's globals as ``op`` / ``context`` before
+calling ``upgrade()``. Branch inputs are served from a fixed tenant profile so
+conditional migrations execute the right branch:
 
-Conditional migrations that branch on ``op.get_bind().engine.url.database`` are
-served from a fixed tenant profile (``database_name``). With the default (empty)
-profile, replay follows the unconditional path — enough for M1. Branching on
-``context.get_x_argument()`` is not served yet (added in M2).
+  * ``op.get_bind().engine.url.database``  -> the tenant's ``database_name`` (mall_id)
+  * ``context.get_x_argument()``           -> ``{"platform_type": ...}``
+
+With an empty profile, replay follows the unconditional path.
 """
 
 from __future__ import annotations
@@ -41,6 +40,23 @@ class _Bind:
     def __init__(self, database: str | None):
         self.engine = _Engine(database)
         self.dialect = _DIALECT
+
+
+class ContextStub:
+    """Stand-in for ``alembic.context`` — serves the tenant's x-arguments so
+    ``context.get_x_argument()`` drives the right migration branch."""
+
+    def __init__(self, x_arguments: dict | None = None, bind: _Bind | None = None):
+        self._x = dict(x_arguments or {})
+        self._bind = bind
+
+    def get_x_argument(self, as_dictionary: bool = False):
+        if as_dictionary:
+            return dict(self._x)
+        return [f"{k}={v}" for k, v in self._x.items()]
+
+    def get_bind(self):
+        return self._bind
 
 
 class OpRecorder:
@@ -90,7 +106,7 @@ class OpRecorder:
     def f(self, name):  # op.f() naming helper
         return name
 
-    # -- deferred to later milestones ----------------------------------------
+    # -- deferred to M3 ------------------------------------------------------
     def execute(self, sql, *a, **k):
         # M3 will parse DDL out of raw SQL; for now record it as unparsed so it
         # is surfaced rather than silently dropped.
@@ -106,8 +122,7 @@ class OpRecorder:
 
 
 class _BatchOp:
-    """Proxy for ``with op.batch_alter_table('t') as batch_op:`` — forwards to
-    the recorder with the table name bound."""
+    """Proxy for ``with op.batch_alter_table('t') as batch_op:``."""
 
     def __init__(self, op: OpRecorder, table: str, schema: str | None):
         self._op = op
