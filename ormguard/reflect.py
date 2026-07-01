@@ -10,8 +10,39 @@ from __future__ import annotations
 
 from sqlalchemy import inspect
 
-from ._schema import ColumnInfo, TableInfo, type_to_string
+from ._schema import ColumnInfo, IndexInfo, TableInfo, type_to_string
 from .config import Config
+
+
+def _reflect_indexes(inspector, info: TableInfo, name: str, schema: str | None, config: Config) -> None:
+    """Reflect real indexes, skipping the ones that merely back a primary key
+    or a unique constraint (those are auto-created, not declared as ORM
+    ``Index()`` objects, so comparing them would be noise)."""
+    try:
+        pk = inspector.get_pk_constraint(name, schema=schema)
+        pk_cols = tuple(pk.get("constrained_columns") or ())
+    except Exception:  # pragma: no cover - dialect without PK reflection
+        pk_cols = ()
+    try:
+        unique_colsets = {
+            tuple(uc.get("column_names") or ())
+            for uc in inspector.get_unique_constraints(name, schema=schema)
+        }
+    except Exception:  # pragma: no cover - dialect without unique-constraint reflection
+        unique_colsets = set()
+
+    for idx in inspector.get_indexes(name, schema=schema):
+        raw_cols = idx.get("column_names") or []
+        # Expression indexes report a None column — we can't compare those by name.
+        if not raw_cols or any(c is None for c in raw_cols):
+            continue
+        cols = tuple(raw_cols)
+        if any(config.is_column_ignored(name, c) for c in cols):
+            continue
+        if cols == pk_cols or cols in unique_colsets:
+            continue
+        index = IndexInfo(name=idx.get("name") or "", columns=cols, unique=bool(idx.get("unique")))
+        info.indexes[index.key] = index
 
 
 def reflect_actual(
@@ -41,5 +72,9 @@ def reflect_actual(
                 type_str=type_to_string(col["type"], dialect),
                 nullable=bool(col.get("nullable", True)),
             )
+
+        if config.check_indexes:
+            _reflect_indexes(inspector, info, name, schema, config)
+
         actual[key] = info
     return actual

@@ -18,6 +18,10 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Optional index validation (`Config(check_indexes=True)` / `--check-indexes`):
+  emits `index_missing` / `index_extra`, compared by column set + uniqueness,
+  skipping PK/unique-constraint-backed indexes. Opt-in, defaults to WARN. (#2)
+
 - Contribution scaffolding: issue forms (bug / feature), PR template,
   `CONTRIBUTING.md`, `CHANGELOG.md`, `CLAUDE.md`.
 - Dependabot for pip and GitHub Actions.
