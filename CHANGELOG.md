@@ -21,6 +21,9 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Optional index validation (`Config(check_indexes=True)` / `--check-indexes`):
   emits `index_missing` / `index_extra`, compared by column set + uniqueness,
   skipping PK/unique-constraint-backed indexes. Opt-in, defaults to WARN. (#2)
+- Optional foreign-key validation (`Config(check_foreign_keys=True)` /
+  `--check-foreign-keys`): emits `fk_missing` / `fk_extra`, compared by local
+  columns + referred table + referred columns. Opt-in, defaults to WARN. (#3)
 
 - Contribution scaffolding: issue forms (bug / feature), PR template,
   `CONTRIBUTING.md`, `CHANGELOG.md`, `CLAUDE.md`.
