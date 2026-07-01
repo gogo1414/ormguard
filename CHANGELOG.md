@@ -11,6 +11,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 - CLI no longer crashes with `UnicodeEncodeError` on legacy consoles (e.g.
   Windows cp949); stdout/stderr are reconfigured to UTF-8. (#12)
 
+### Documentation
+
+- Added a top-of-README "Quickstart (60 seconds)" with copy-paste install,
+  `--selfcheck`, FastAPI guard, and CI snippets. (#11)
+
 ### Added
 
 - Contribution scaffolding: issue forms (bug / feature), PR template,

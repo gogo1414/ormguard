@@ -5,6 +5,29 @@
 database and verify it matches your ORM entities. Catch entity↔DB drift at
 **boot time** instead of as a runtime `column does not exist` error.
 
+## Quickstart (60 seconds)
+
+```bash
+pip install ormguard
+python -m ormguard --selfcheck   # see it catch drift against in-memory SQLite — no DB, no setup
+```
+
+Guard your app at boot so it refuses to start on drift (FastAPI):
+
+```python
+from ormguard.integrations.fastapi import schema_guard_lifespan
+
+app = FastAPI(lifespan=schema_guard_lifespan(engine, Base, strict=True))
+```
+
+...or fail CI before you ship (exit code 1 on ERROR findings):
+
+```bash
+python -m ormguard --url "$DATABASE_URL" --metadata myapp.db:Base
+```
+
+That's it. Details and every mode are below.
+
 ## The problem
 
 In JPA/Hibernate, `ddl-auto=validate` checks every entity against the live
