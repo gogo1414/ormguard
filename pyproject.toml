@@ -20,7 +20,8 @@ classifiers = [
 dependencies = ["SQLAlchemy>=1.4"]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "ruff"]
+replay = ["alembic>=1.7"]
+dev = ["pytest>=7", "ruff", "alembic>=1.7"]
 
 [project.scripts]
 ormguard = "ormguard.cli:main"

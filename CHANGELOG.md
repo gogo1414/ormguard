@@ -26,6 +26,12 @@ adheres to [Semantic Versioning](https://semver.org/).
   `check_missing` / `check_extra`, compared by constraint *name* only (the
   expression text is dialect-rewritten on reflection, so it is not diffed);
   unnamed constraints are skipped. Opt-in, WARN. (#5)
+- **v2 (offline replay), M1**: replay Alembic migrations into an in-memory
+  catalog without a database and diff against ORM metadata
+  (`ormguard.replay.replay_migrations` / `validate_migrations`). Hooks `op.*`
+  (create/drop/alter table & column, `batch_alter_table`) and orders revisions
+  by the DAG (branches/merges). Raw `op.execute` SQL is collected for a later
+  milestone (M3). Adds the `replay` extra (`pip install ormguard[replay]`).
 - Webhook notifications: `--notify-webhook URL` (and `--notify-on error|any`)
   POST the report to a Slack- or Discord-compatible incoming webhook when drift
   is found — one payload works for both, standard library only, best-effort.

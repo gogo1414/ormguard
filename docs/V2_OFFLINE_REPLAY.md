@@ -108,8 +108,11 @@ CLI: `python -m ormguard replay --migrations migration/versions --metadata src..
 
 ## 7. 마일스톤
 
-- **M1**: 카탈로그 + `op.*`(create_table/add/drop/alter_column) 후킹 + DAG replay.
-  raw SQL 없이도 동작하는 단순 마이그레이션 셋으로 검증.
+- **M1** ✅ (구현됨, `ormguard/replay/`): 인메모리 카탈로그 + `op.*`
+  (create/drop/alter table·column, batch_alter_table) 후킹 + revision DAG
+  위상정렬 replay. `replay_migrations()` / `validate_migrations()` 공개.
+  `tests/test_replay_m1.py`로 검증(임시 마이그레이션 셋, 브랜치/머지 포함).
+  `op.execute` raw SQL은 `catalog.unparsed`에 수집(M3에서 파싱).
 - **M2**: 가짜 offline 커넥션/`get_x_argument` 주입 → 분기 동작. `aace-api`의
   `a149c4ae450c`(order 컬럼, platform 분기) 케이스 재현.
 - **M3**: sqlglot 기반 raw SQL DDL 파서 + `DO $$` 처리. 감사 문서의 #1~#7을
