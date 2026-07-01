@@ -18,6 +18,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **v2 (offline replay), M2**: tenant-aware replay. Inject a
+  `(platform_type, database_name)` profile so conditional migrations execute
+  the right branch (`op.get_bind().engine.url.database` /
+  `context.get_x_argument()`). New `replay_migrations(platform_type=, database_name=)`
+  and `validate_tenants(tenants)` for multi-tenant diff matrices.
+
 - **v2 (offline replay), M1**: replay Alembic migrations into an in-memory
   catalog without a database and diff against ORM metadata
   (`ormguard.replay.replay_migrations` / `validate_migrations`). Hooks `op.*`
