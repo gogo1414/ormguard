@@ -17,6 +17,21 @@ from .config import Config
 from .core import validate
 
 
+def _force_utf8_output() -> None:
+    """Emit UTF-8 even on legacy consoles (e.g. Windows cp949).
+
+    Report output contains characters like ``—`` and ``→``; without this, a
+    ``print`` on a cp949 terminal raises ``UnicodeEncodeError``.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8")
+            except (ValueError, OSError):  # pragma: no cover - stream may not support it
+                pass
+
+
 def _load_metadata(spec: str):
     """Load 'package.module:attr' where attr is a declarative Base or MetaData."""
     if ":" not in spec:
@@ -27,6 +42,7 @@ def _load_metadata(spec: str):
 
 
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8_output()
     parser = argparse.ArgumentParser(prog="ormguard", description="Validate DB schema against SQLAlchemy ORM.")
     parser.add_argument(
         "--selfcheck", action="store_true",

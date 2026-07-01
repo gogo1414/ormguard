@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- CLI no longer crashes with `UnicodeEncodeError` on legacy consoles (e.g.
+  Windows cp949); stdout/stderr are reconfigured to UTF-8. (#12)
+
 ### Added
 
 - Contribution scaffolding: issue forms (bug / feature), PR template,
