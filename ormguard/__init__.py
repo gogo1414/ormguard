@@ -7,6 +7,8 @@ entity↔DB drift at boot instead of as a runtime ``column does not exist``.
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version as _pkg_version
+
 from .config import Config
 from .core import (
     assert_schema,
@@ -21,7 +23,10 @@ from .model import (
     ValidationReport,
 )
 
-__version__ = "0.1.0"
+try:
+    __version__ = _pkg_version("ormguard")
+except PackageNotFoundError:  # source tree without installed metadata
+    __version__ = "0.0.0+unknown"
 
 __all__ = [
     "validate",

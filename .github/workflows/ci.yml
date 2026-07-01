@@ -15,6 +15,8 @@ jobs:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # hatch-vcs needs tags to compute the version
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -23,6 +25,8 @@ jobs:
         run: ruff check .
       - name: Unit tests (SQLite, no external DB)
         run: pytest -q
+      - name: Self-check smoke test
+        run: python -m ormguard --selfcheck --warn-only # selfcheck intentionally finds drift; --warn-only keeps exit 0
 
   postgres:
     name: integration (postgres)
@@ -42,6 +46,8 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # hatch-vcs needs tags to compute the version
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -50,3 +56,27 @@ jobs:
         env:
           DATABASE_URL: postgresql+psycopg://ormguard:ormguard@localhost:5432/ormguard_test
         run: pytest -q -m postgres
+
+  # Posts to Slack/Discord only when CI fails AND the matching webhook secret
+  # exists — otherwise every step is skipped, so it stays dormant until set.
+  notify-failure:
+    name: Notify on failure
+    needs: [test, postgres]
+    if: failure()
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+    steps:
+      - name: Slack notification
+        if: ${{ env.SLACK_WEBHOOK_URL != '' }}
+        run: |
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\":red_circle: ormguard CI failed on \`${{ github.ref_name }}\` — ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            "$SLACK_WEBHOOK_URL"
+      - name: Discord notification
+        if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
+        run: |
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "{\"content\":\":red_circle: ormguard CI failed on \`${{ github.ref_name }}\` — ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+            "$DISCORD_WEBHOOK_URL"

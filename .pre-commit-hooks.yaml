@@ -1,0 +1,31 @@
+# Hooks that downstream projects can use by adding ormguard to their
+# .pre-commit-config.yaml:
+#
+#   - repo: https://github.com/gogo1414/ormguard
+#     rev: v0.1.0
+#     hooks:
+#       - id: ormguard
+#         args: ["--url", "sqlite:///app.db", "--metadata", "myapp.db:Base"]
+#
+# Or the zero-config smoke test:
+#
+#   - repo: https://github.com/gogo1414/ormguard
+#     rev: v0.1.0
+#     hooks:
+#       - id: ormguard-selfcheck
+
+- id: ormguard
+  name: ormguard schema validation
+  description: Validate that the database schema matches your SQLAlchemy models.
+  entry: ormguard
+  language: python
+  pass_filenames: false
+  always_run: true
+
+- id: ormguard-selfcheck
+  name: ormguard selfcheck
+  description: Run ormguard's self-contained SQLite demo (no database required).
+  entry: ormguard --selfcheck --warn-only
+  language: python
+  pass_filenames: false
+  always_run: true

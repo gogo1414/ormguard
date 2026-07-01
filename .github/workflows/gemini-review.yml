@@ -1,0 +1,44 @@
+name: Gemini PR Review
+
+# AI code review on pull requests via the Gemini CLI GitHub Action.
+# (The free "Gemini Code Assist" GitHub app for consumers is shut down
+# 2026-07-17, so we use the durable Action + API key path instead.)
+#
+# To enable:
+#   1. Create a Gemini API key at https://aistudio.google.com/apikey
+#   2. Repo Settings → Secrets and variables → Actions:
+#        - Secret:   GEMINI_API_KEY = <your key>
+#        - Variable: GEMINI_ENABLED = true
+# Until GEMINI_ENABLED is "true" this workflow is skipped (no failed checks).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: gemini-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: ${{ vars.GEMINI_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gemini pull request review
+        uses: google-github-actions/run-gemini-cli@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        with:
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          extensions: |
+            [
+              "https://github.com/gemini-cli-extensions/code-review"
+            ]
+          prompt: "/pr-code-review"

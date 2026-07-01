@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "ormguard"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Fail-fast schema validation for SQLAlchemy — Hibernate's ddl-auto=validate for Python."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -26,7 +26,20 @@ dev = ["pytest>=7", "ruff"]
 ormguard = "ormguard.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/JuneSoo/ormguard"
+Homepage = "https://github.com/gogo1414/ormguard"
+Repository = "https://github.com/gogo1414/ormguard"
+Issues = "https://github.com/gogo1414/ormguard/issues"
+Changelog = "https://github.com/gogo1414/ormguard/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+source = "vcs"
+
+# Used before the first git tag exists, so builds never fail pre-release.
+[tool.hatch.version.raw-options]
+fallback_version = "0.1.0"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "ormguard/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["ormguard"]
