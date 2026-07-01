@@ -27,12 +27,29 @@ class IndexInfo:
         return (self.columns, self.unique)
 
 
+@dataclass(frozen=True)
+class ForeignKeyInfo:
+    columns: tuple[str, ...]            # local columns, in order
+    referred_table: str
+    referred_columns: tuple[str, ...]
+    name: str = ""
+
+    @property
+    def key(self) -> tuple[tuple[str, ...], str, tuple[str, ...]]:
+        # Compared by (local columns, referred table, referred columns), not by
+        # name — constraint names differ between the ORM and dialects.
+        return (self.columns, self.referred_table, self.referred_columns)
+
+
 @dataclass
 class TableInfo:
     name: str
     schema: str | None
     columns: dict[str, ColumnInfo] = field(default_factory=dict)
     indexes: dict[tuple[tuple[str, ...], bool], IndexInfo] = field(default_factory=dict)
+    foreign_keys: dict[tuple[tuple[str, ...], str, tuple[str, ...]], ForeignKeyInfo] = field(
+        default_factory=dict
+    )
 
     @property
     def key(self) -> tuple[str | None, str]:

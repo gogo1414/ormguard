@@ -7,6 +7,8 @@ from .config import Config
 from .model import (
     COLUMN_EXTRA,
     COLUMN_MISSING,
+    FK_EXTRA,
+    FK_MISSING,
     INDEX_EXTRA,
     INDEX_MISSING,
     NULLABLE_MISMATCH,
@@ -126,6 +128,39 @@ def diff_schemas(
                         detail=(
                             f"database has an index on ({', '.join(idx.columns)})"
                             f"{' unique' if idx.unique else ''} not declared in the ORM"
+                        ),
+                    )
+                )
+
+        # Foreign keys (opt-in), compared by (columns, referred table, referred columns).
+        if config.check_foreign_keys:
+            for k in exp.foreign_keys.keys() - act.foreign_keys.keys():
+                fk = exp.foreign_keys[k]
+                findings.append(
+                    Finding(
+                        severity=config.severity_for(FK_MISSING, Severity.WARN),
+                        kind=FK_MISSING,
+                        schema=schema,
+                        table=table,
+                        detail=(
+                            f"ORM declares a foreign key ({', '.join(fk.columns)}) -> "
+                            f"{fk.referred_table}({', '.join(fk.referred_columns)}) "
+                            "but the database has none"
+                        ),
+                    )
+                )
+            for k in act.foreign_keys.keys() - exp.foreign_keys.keys():
+                fk = act.foreign_keys[k]
+                findings.append(
+                    Finding(
+                        severity=config.severity_for(FK_EXTRA, Severity.WARN),
+                        kind=FK_EXTRA,
+                        schema=schema,
+                        table=table,
+                        detail=(
+                            f"database has a foreign key ({', '.join(fk.columns)}) -> "
+                            f"{fk.referred_table}({', '.join(fk.referred_columns)}) "
+                            "not declared in the ORM"
                         ),
                     )
                 )

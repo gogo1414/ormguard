@@ -26,6 +26,8 @@ NULLABLE_MISMATCH = "nullable_mismatch"  # NOT NULL / NULL disagreement
 TYPE_MISMATCH = "type_mismatch"          # column type disagreement (opt-in)
 INDEX_MISSING = "index_missing"          # ORM declares an index the DB lacks (opt-in)
 INDEX_EXTRA = "index_extra"              # DB has an index no ORM entity declares (opt-in)
+FK_MISSING = "fk_missing"                # ORM declares a foreign key the DB lacks (opt-in)
+FK_EXTRA = "fk_extra"                    # DB has a foreign key no ORM entity declares (opt-in)
 
 
 @dataclass(frozen=True)
