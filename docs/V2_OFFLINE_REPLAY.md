@@ -1,134 +1,159 @@
-# ormguard v2 — 오프라인 멀티테넌트 Alembic Replay
+# ormguard v2 — Offline Multi-Tenant Alembic Replay
 
-> 상태: **M1·M2·M3 구현 완료** (`ormguard/replay/`), M4 남음. v1(런타임 validate)과 독립적으로 켤 수 있는 모드.
+> Status: **M1–M4 implemented** (`ormguard/replay/`). Independent of v1
+> (runtime validate); enable either or both.
 
-## 1. 무엇을, 왜
+## 1. What and why
 
-v1은 *살아있는 DB*에 붙어 검증한다. 하지만 멀티테넌트 환경의 진짜 위험은
-**"신규 테넌트를 마이그레이션으로 처음부터 만들면 어떤 스키마가 되는가"** 이고,
-이건 그 테넌트 DB가 아직 존재하지 않으므로 v1으로는 볼 수 없다.
+v1 validates against a *live* database. But in a multi-tenant deployment the
+real danger is **"what schema does a brand-new tenant get when the migrations
+build it from scratch?"** — and since that tenant's DB does not exist yet, v1
+cannot see it.
 
-v2는 **DB 없이**, 마이그레이션을 테넌트 프로파일별로 오프라인 replay 해서 각
-테넌트의 *산출 스키마*를 계산하고 ORM과 diff 한다. 즉 `aace-api`의 수동 감사
-(`docs/alembic_orm_drift_audit.md`)를 자동화하는 것이 목표다.
+v2 replays the migrations **without a database**, once per tenant profile,
+computes each tenant's *resulting schema*, and diffs it against the ORM. It
+automates what used to be a manual per-tenant drift audit.
 
-`alembic check`/Atlas는 살아있는 DB 하나를 autogenerate로 비교할 뿐, 마이그레이션
-내부의 `platform_type`/`database_name` **조건 분기를 실제 실행**해 테넌트별 결과를
-시뮬레이션하지 못한다. 이 부분이 v2의 차별점이다.
+`alembic check`/Atlas compare one live DB via autogenerate; they cannot
+**actually execute** the `platform_type`/`database_name` conditionals inside
+migrations to simulate per-tenant outcomes. That is v2's differentiator.
 
-## 2. 입력 / 출력
+## 2. Input / output
 
-- **입력**
-  - ORM 목표 스키마: `Base.metadata` (v1과 동일 추출기 재사용).
-  - 마이그레이션 디렉터리: `migration/versions/**` (revision DAG).
-  - 테넌트 프로파일 목록: `[(platform_type, database_name), …]`
-    (예: `("larosee", "larosee_co_kr")`, `("cafe24", "cafe24shop")`).
-    수동 지정 또는 `clients` 테이블 스냅샷(JSON)에서 로드.
-- **출력**
-  - 테넌트별 `ValidationReport` (v1과 동일 모델 재사용).
-  - 테넌트 × finding 매트릭스 + 테넌트 간 divergence 리포트.
+- **Input**
+  - ORM target schema: `Base.metadata` (same extractor as v1).
+  - Migration directory: `migration/versions/**` (revision DAG).
+  - Tenant profiles: `[(platform_type, database_name), …]`
+    (e.g. `("larosee", "larosee_co_kr")`, `("cafe24", "cafe24shop")`) —
+    given manually, via `--tenant`, or loaded from a JSON snapshot
+    (`--tenants-file`).
+- **Output**
+  - Per-tenant `ValidationReport` (same model as v1).
+  - Tenant × finding matrix + tenant divergence report
+    (`format_tenant_matrix`, `find_divergence`).
 
-## 3. 핵심 메커니즘 — 오프라인 replay
+## 3. Core mechanism — offline replay
 
-문제: 마이그레이션은 `op.add_column(...)`, `op.create_table(...)`,
-`op.execute("ALTER TABLE … / DO $$ … $$")` 같은 부수효과로 **실제 DB를 바꾸도록**
-작성돼 있고, 분기는 `connection.engine.url.database`와
-`context.get_x_argument()["platform_type"]`을 읽는다. DB 없이 결과 스키마를 알려면:
+Problem: migrations are written to mutate a real DB via side effects
+(`op.add_column(...)`, `op.create_table(...)`,
+`op.execute("ALTER TABLE … / DO $$ … $$")`), and they branch on
+`connection.engine.url.database` and
+`context.get_x_argument()["platform_type"]`. To know the resulting schema
+without a DB:
 
-1. **인메모리 카탈로그**: `{(schema, table): TableInfo}` 를 들고, replay가 이걸
-   변형하게 한다. (v1의 `_schema.TableInfo` 재사용.)
+1. **In-memory catalog**: `{(schema, table): TableInfo}` that the replay
+   mutates (reuses v1's `_schema.TableInfo`).
 
-2. **`op.*` 후킹**: `alembic.op`의 주요 연산을 가로채 카탈로그에 반영.
-   - `create_table`, `drop_table`
-   - `add_column`, `drop_column`, `alter_column`
-   - `create_index`/`drop_index`, `create_foreign_key` … (v2.1)
-   - `op.execute(sql)` → 아래 4번 SQL 파서로 위임.
-   - `op.bulk_insert`/데이터 변경 → 스키마엔 영향 없으니 무시.
+2. **`op.*` hooks**: intercept the main operations of `alembic.op` and apply
+   them to the catalog —
+   `create_table`, `drop_table`, `add_column`, `drop_column`, `alter_column`,
+   `batch_alter_table`; `op.execute(sql)` delegates to the SQL parser (below);
+   `op.bulk_insert`/data changes have no schema effect and are ignored.
 
-3. **가짜 offline 커넥션/컨텍스트**: 분기 입력을 프로파일 값으로 주입.
-   - `op.get_bind()` 가 반환하는 객체의 `.engine.url.database` 가 프로파일의
-     `database_name` 을 돌려주도록 한다.
-   - `context.get_x_argument(as_dictionary=True)` 가
-     `{"platform_type": <프로파일>}` 를 돌려주도록 패치.
-   - 이렇게 하면 마이그레이션의 `if database_name in [...]: return`,
-     `if platform_type != "cafe24": return` 같은 가드가 **실제로 동작**한다.
+3. **Fake offline connection/context**: serve branch inputs from the profile.
+   - `op.get_bind().engine.url.database` returns the profile's `database_name`.
+   - `context.get_x_argument(as_dictionary=True)` returns
+     `{"platform_type": <profile>}`.
+   - Guards like `if database_name in [...]: return` and
+     `if platform_type != "cafe24": return` **actually execute**.
 
-4. **raw SQL DDL 파서** (`op.execute` 처리): `sqlglot`(PostgreSQL dialect)로
-   파싱해 카탈로그에 적용.
-   - 지원 대상: `CREATE TABLE`, `ALTER TABLE … ADD/DROP/ALTER COLUMN`,
-     `DROP TABLE`, `CREATE INDEX`.
-   - `DO $$ … $$` 익명 블록: 내부의 `ALTER TABLE …`/`IF NOT EXISTS` 멱등 패턴을
-     best-effort로 추출(정규식 + sqlglot). 파싱 실패 시 **해당 statement를
-     `unparsed`로 기록**하고 리포트에 "검증 불가" 플래그를 남긴다(조용히 무시 금지).
-   - 순수 데이터 DML(`INSERT/UPDATE/DELETE`)은 스키마 무영향 → skip.
+4. **Raw SQL DDL parser** (`op.execute`): parse with sqlglot (PostgreSQL
+   dialect) and apply to the catalog.
+   - Supported: `CREATE TABLE`, `ALTER TABLE … ADD/DROP/ALTER/RENAME COLUMN`,
+     `DROP TABLE`.
+   - `DO $$ … $$` anonymous blocks: DDL inside the body is extracted
+     best-effort (regex + sqlglot).
+   - Anything unparseable — including statements sqlglot only recognizes as a
+     generic command — is recorded in `catalog.unparsed` and surfaced in the
+     report as an `unparsed_migration_sql` finding (WARN by default). Never
+     silently dropped; the report never claims a false "clean".
+   - Pure DML (`INSERT/UPDATE/DELETE`) has no schema effect → skipped.
 
-5. **revision 순서 replay**: down_revision DAG를 위상정렬하여 root→head 순서로
-   각 `upgrade()` 를 호출. 브랜치/머지(`branch_labels`, 다중 head)도 DAG로 처리.
-   각 테넌트 프로파일마다 깨끗한 카탈로그에서 처음부터 다시 replay.
+5. **Revision-ordered replay**: topologically sort the down_revision DAG and
+   call each `upgrade()` root→head. Branches/merges (`branch_labels`,
+   multiple heads) are handled by the DAG. Each tenant profile replays from a
+   fresh catalog.
 
-## 4. diff & 리포트
+## 4. Diff & report
 
-- 테넌트별 산출 카탈로그 vs `Base.metadata` → **v1의 `diff_schemas` 그대로 재사용.**
-- 추가 finding 종류:
-  - `tenant_divergence`: 같은 테이블/컬럼이 테넌트마다 다르게 산출됨.
-  - `unparsed_migration_sql`: replay가 해석 못한 raw SQL (수동 확인 필요, INFO/WARN).
-- 출력: 테넌트 × 컬럼 매트릭스(감사 문서의 표와 동일 포맷).
+- Per-tenant computed catalog vs `Base.metadata` → **v1's `diff_schemas`,
+  reused as-is**, plus `unparsed_migration_sql` findings.
+- `format_tenant_matrix(reports)` — one row per distinct finding, one column
+  per tenant (`✗` = affected), per-tenant summary, and a divergence section.
+- `find_divergence(reports)` — findings on a *strict subset* of tenants:
+  a finding on **every** tenant is systematic drift (fix the migration once);
+  a subset-only finding means tenants genuinely diverged — the class of bug
+  this mode exists to catch.
 
-## 5. 공개 API (예정)
+## 5. Public API
 
 ```python
-from ormguard.replay import replay_tenant, validate_migrations
-
-# 단일 테넌트 산출 스키마
-catalog = replay_tenant(
-    migrations_dir="migration/versions",
-    platform_type="larosee",
-    database_name="larosee_co_kr",
+from ormguard.replay import (
+    replay_migrations,      # one tenant -> Catalog (computed schema)
+    validate_migrations,    # one tenant -> ValidationReport
+    validate_tenants,       # many tenants -> {tenant: ValidationReport}
+    format_tenant_matrix,   # matrix + summary + divergence text
+    find_divergence,        # {finding_key: [tenants]} subset-only findings
 )
 
-# 여러 테넌트 × ORM diff
-reports = validate_migrations(
-    metadata=Base.metadata,
-    migrations_dir="migration/versions",
-    tenants=[("larosee", "larosee_co_kr"), ("cafe24", "cafe24shop")],
-)
+catalog = replay_migrations("migration/versions",
+                            platform_type="larosee", database_name="larosee_co_kr")
+
+reports = validate_tenants(Base, "migration/versions",
+                           tenants=[("larosee", "larosee_co_kr"), ("cafe24", "cafe24shop")])
+print(format_tenant_matrix(reports))
 ```
 
-CLI: `python -m ormguard replay --migrations migration/versions --metadata src...:Base --tenants tenants.json`
+CLI:
 
-## 6. 알려진 난점
+```bash
+python -m ormguard replay --migrations migration/versions --metadata src.db:Base \
+    --tenant cafe24:cafe24shop --tenant larosee:larosee_co_kr
+# or --tenants-file tenants.json; --pythonpath . if models aren't importable
+```
 
-- **raw SQL 커버리지**: 분기의 상당수가 `op.execute` raw SQL이라, 파서 커버리지가
-  곧 정확도. 해석 못 한 건 반드시 `unparsed`로 노출(거짓 안심 방지).
-- **타입 정규화**: v1과 동일 이슈. 존재/nullable 우선, 타입은 opt-in.
-- **마이그레이션이 import하는 앱 코드**: 일부 마이그레이션이 모델/유틸을 import하면
-  그 의존성이 따라온다. replay는 가능한 한 `op`/`sa` 레벨에서만 동작하도록 격리.
-- **프로파일 소스**: 운영 `clients` 테이블 스냅샷을 어떻게 안전하게 제공할지(테스트
-  픽스처 JSON 권장, 운영 접속 불필요).
+Multiple migration environments (e.g. a service DB and a warehouse DB with
+separate Bases) run in one shot via `python -m ormguard check --config
+ormguard.toml` — see USAGE.md §6.
 
-## 7. 마일스톤
+## 6. Known limitations
 
-- **M1** ✅ (구현됨, `ormguard/replay/`): 인메모리 카탈로그 + `op.*`
-  (create/drop/alter table·column, batch_alter_table) 후킹 + revision DAG
-  위상정렬 replay. `replay_migrations()` / `validate_migrations()` 공개.
-  `tests/test_replay_m1.py`로 검증(임시 마이그레이션 셋, 브랜치/머지 포함).
-  `op.execute` raw SQL은 `catalog.unparsed`에 수집(M3에서 파싱).
-- **M2** ✅ (구현됨): 테넌트 프로파일 `(platform_type, database_name)` 주입 →
-  `op.get_bind().engine.url.database`·`context.get_x_argument()` 분기 실행.
-  `replay_migrations(platform_type=, database_name=)` · `validate_tenants(tenants)`
-  공개. `tests/test_replay_m2.py`가 aace AC-1014 패턴(cafe24→order, larosee→rfm,
-  hmall early-return) 재현.
-- **M3** ✅ (구현됨, `ormguard/replay/sql.py`): sqlglot 기반 `op.execute` raw SQL
-  DDL 파서 — CREATE/DROP TABLE, ALTER TABLE ADD/DROP/ALTER/RENAME COLUMN,
-  `DO $$ … $$` 블록(내부 DDL 추출). 해석 불가 SQL은 `catalog.unparsed`로 노출
-  (조용히 버리지 않음). `sqlglot` extra 추가. `tests/test_replay_m3.py`로 검증.
-- **M4**: 테넌트 매트릭스 리포트 + CLI + `unparsed` 플래깅.
+- **Raw SQL coverage**: many branches live in `op.execute` raw SQL, so parser
+  coverage bounds accuracy. Everything unhandled is *flagged*, never hidden.
+- **Type normalization**: same as v1 — presence/nullable first, types opt-in.
+- **Migrations importing app code**: replay stays at the `op`/`sa` level, but a
+  migration that imports app modules pulls in those dependencies
+  (`--pythonpath` helps make them importable).
+- **Profile source**: recommend a checked-in JSON fixture snapshot of the
+  tenant registry — no production access needed.
 
-## 8. eval (정답지)
+## 7. Milestones
 
-`aace-api/docs/alembic_orm_drift_audit.md` 가 그대로 정답지다. v2가 성공하려면
-DB 없이 replay만으로 다음을 재현해야 한다:
-`campaign_sets.campaign_group_id`/`is_group_added` 전무, `send_reservation.is_purchase`
-전무, larosee `audience_predefiend_variables.order` 누락(AC-1014 회귀),
-`enterprise_databases` 네이밍 버그로 인한 테넌트별 들쭉날쭉.
-v1 테스트 `tests/test_aace_drift_cases.py` 가 일부를 이미 인코딩해 두었다.
+- **M1** ✅ — in-memory catalog + `op.*` hooks
+  (create/drop/alter table·column, batch_alter_table) + revision DAG
+  topological replay. `replay_migrations()` / `validate_migrations()`.
+  Verified by `tests/test_replay_m1.py` (temp migration sets, branches/merges).
+- **M2** ✅ — tenant profile `(platform_type, database_name)` injection →
+  `op.get_bind().engine.url.database` / `context.get_x_argument()` branching.
+  `validate_tenants(tenants)`. `tests/test_replay_m2.py` reproduces the
+  real-world pattern (cafe24→order, larosee→rfm, hmall early-return).
+- **M3** ✅ — sqlglot-based raw SQL DDL parser (`ormguard/replay/sql.py`):
+  CREATE/DROP TABLE, ALTER TABLE ADD/DROP/ALTER/RENAME COLUMN,
+  `DO $$ … $$` blocks. Unparseable SQL → `catalog.unparsed`.
+  `sqlglot` added to the `replay` extra. `tests/test_replay_m3.py`.
+- **M4** ✅ — tenant × finding matrix + divergence report
+  (`format_tenant_matrix`, `find_divergence`), `unparsed_migration_sql`
+  finding surfaced in reports, `ormguard replay` CLI (tenants via flags or
+  JSON file), and multi-target `ormguard check --config ormguard.toml`
+  (service + warehouse environments in one run). `tests/test_replay_m4.py`,
+  `tests/test_configfile.py`.
+
+## 8. Eval (ground truth)
+
+The manual drift audit of the originating multi-tenant service is the answer
+key. v2 succeeds if replay alone — no DB — reproduces:
+`campaign_sets.campaign_group_id`/`is_group_added` missing everywhere,
+`send_reservation.is_purchase` missing everywhere, larosee
+`audience_predefiend_variables.order` missing (a real regression), and the
+per-tenant scatter caused by the `enterprise_databases` naming bug.
+`tests/test_aace_drift_cases.py` already encodes several of these.
