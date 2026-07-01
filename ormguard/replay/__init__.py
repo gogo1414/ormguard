@@ -10,6 +10,7 @@ from __future__ import annotations
 from .catalog import Catalog
 from .engine import replay_migrations, validate_migrations, validate_tenants
 from .loader import load_ordered
+from .report import find_divergence, format_tenant_matrix
 
 __all__ = [
     "Catalog",
@@ -17,4 +18,6 @@ __all__ = [
     "validate_migrations",
     "validate_tenants",
     "load_ordered",
+    "format_tenant_matrix",
+    "find_divergence",
 ]

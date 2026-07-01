@@ -26,6 +26,22 @@ adheres to [Semantic Versioning](https://semver.org/).
   `check_missing` / `check_extra`, compared by constraint *name* only (the
   expression text is dialect-rewritten on reflection, so it is not diffed);
   unnamed constraints are skipped. Opt-in, WARN. (#5)
+- **v2 (offline replay), M4**: tenant × finding matrix and divergence report
+  (`ormguard.replay.format_tenant_matrix` / `find_divergence` — findings that
+  hit only a subset of tenants are called out as genuine schema divergence),
+  `unparsed_migration_sql` findings surfaced in `ValidationReport` (WARN by
+  default) so replay never claims a false "clean", and an `ormguard replay`
+  CLI subcommand (`--migrations`, `--metadata`, repeatable `--tenant
+  platform:database`, `--tenants-file tenants.json`, `--pythonpath`).
+  Statements sqlglot only recognizes as a generic command are now recorded as
+  unparsed instead of silently dropped.
+- Multi-target config file: `python -m ormguard check --config ormguard.toml`
+  validates several targets — e.g. a service DB (offline replay, multi-tenant)
+  and a warehouse DB (live reflection), each with its own declarative Base and
+  Alembic environment — in one run with a combined exit code. Top-level keys
+  act as defaults; per-target overrides; relative paths resolve against the
+  config file; `url_env` keeps secrets out of the file. New `config` extra
+  installs `tomli` on Python < 3.11.
 - **v2 (offline replay), M3**: raw-SQL DDL parsing for `op.execute` via sqlglot
   — CREATE/DROP TABLE and ALTER TABLE ADD/DROP/ALTER/RENAME COLUMN, including
   `DO $$ ... $$` blocks. SQL that can't be interpreted is surfaced in
