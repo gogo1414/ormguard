@@ -115,16 +115,20 @@ print(format_matrix(reports))
 | `index_extra` | WARN (opt-in) | DB has an index not declared in the ORM — off by default |
 | `fk_missing` | WARN (opt-in) | ORM declares a foreign key the DB lacks — off by default |
 | `fk_extra` | WARN (opt-in) | DB has a foreign key not declared in the ORM — off by default |
+| `default_missing` | WARN (opt-in) | ORM sets a server_default the DB column lacks — off by default |
+| `default_extra` | WARN (opt-in) | DB column has a default the ORM doesn't declare — off by default |
 
 Configurable via `Config`: restrict schemas, ignore tables/columns, flip
-severities, toggle nullable/type/index/foreign-key/extra checks.
+severities, toggle nullable/type/index/foreign-key/default/extra checks.
 
 Index checks (`--check-indexes` / `Config(check_indexes=True)`) compare by column
 set and uniqueness — not by name — and skip indexes that merely back a primary
 key or unique constraint. Foreign-key checks (`--check-foreign-keys`) compare by
-local columns, referred table, and referred columns. Both keep false positives low.
+local columns, referred table, and referred columns. Server-default checks
+(`--check-defaults`) compare only *whether* a DB default exists — not its value,
+which is too dialect-dependent — and skip primary keys. All keep false positives low.
 
-Out of scope for v1 (planned): defaults, check
+Out of scope for v1 (planned): check
 constraints, enums, and an **offline multi-tenant Alembic replay** mode that
 diffs ORM against the schema migrations *would* produce per tenant — without a
 database.

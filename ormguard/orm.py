@@ -25,6 +25,7 @@ def build_expected(metadata, dialect, config: Config) -> dict[tuple[str | None, 
                 # PK columns are implicitly NOT NULL in SQLAlchemy.
                 nullable=bool(col.nullable),
                 primary_key=bool(col.primary_key),
+                has_server_default=col.server_default is not None,
             )
 
         if config.check_indexes:

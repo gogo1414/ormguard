@@ -7,6 +7,8 @@ from .config import Config
 from .model import (
     COLUMN_EXTRA,
     COLUMN_MISSING,
+    DEFAULT_EXTRA,
+    DEFAULT_MISSING,
     FK_EXTRA,
     FK_MISSING,
     INDEX_EXTRA,
@@ -86,6 +88,36 @@ def diff_schemas(
                         detail=f"entity type {ecol.type_str} != database type {acol.type_str}",
                     )
                 )
+
+            # Server-side default presence (opt-in) — value is not compared, only
+            # whether a DB default exists. PK identity defaults are skipped.
+            if (
+                config.check_server_defaults
+                and not ecol.primary_key
+                and ecol.has_server_default != acol.has_server_default
+            ):
+                if ecol.has_server_default:
+                    findings.append(
+                        Finding(
+                            severity=config.severity_for(DEFAULT_MISSING, Severity.WARN),
+                            kind=DEFAULT_MISSING,
+                            schema=schema,
+                            table=table,
+                            column=cname,
+                            detail="entity sets a server_default but the database column has none",
+                        )
+                    )
+                else:
+                    findings.append(
+                        Finding(
+                            severity=config.severity_for(DEFAULT_EXTRA, Severity.WARN),
+                            kind=DEFAULT_EXTRA,
+                            schema=schema,
+                            table=table,
+                            column=cname,
+                            detail="database column has a default the ORM does not declare",
+                        )
+                    )
 
         # Columns in the DB that no entity maps.
         if config.flag_extra_columns:

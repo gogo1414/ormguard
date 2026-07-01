@@ -28,6 +28,8 @@ INDEX_MISSING = "index_missing"          # ORM declares an index the DB lacks (o
 INDEX_EXTRA = "index_extra"              # DB has an index no ORM entity declares (opt-in)
 FK_MISSING = "fk_missing"                # ORM declares a foreign key the DB lacks (opt-in)
 FK_EXTRA = "fk_extra"                    # DB has a foreign key no ORM entity declares (opt-in)
+DEFAULT_MISSING = "default_missing"      # ORM sets server_default but the DB column has none (opt-in)
+DEFAULT_EXTRA = "default_extra"          # DB column has a default the ORM does not declare (opt-in)
 
 
 @dataclass(frozen=True)
