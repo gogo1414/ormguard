@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 
 from .model import (
     COLUMN_EXTRA,
+    DEFAULT_EXTRA,
+    DEFAULT_MISSING,
     FK_EXTRA,
     FK_MISSING,
     INDEX_EXTRA,
@@ -40,6 +42,7 @@ class Config:
     check_types: bool = False  # dialect-dependent; opt in once tuned for your DB.
     check_indexes: bool = False  # dialect-dependent; opt in. Compares by column set + uniqueness.
     check_foreign_keys: bool = False  # opt in. Compares by (columns, referred table, referred columns).
+    check_server_defaults: bool = False  # opt in. Compares presence of a DB default, not its value.
     flag_extra_columns: bool = True  # DB columns not present on the entity.
 
     # Severity per kind — override to make e.g. nullable mismatches fatal.
@@ -52,6 +55,8 @@ class Config:
             INDEX_EXTRA: Severity.WARN,
             FK_MISSING: Severity.WARN,
             FK_EXTRA: Severity.WARN,
+            DEFAULT_MISSING: Severity.WARN,
+            DEFAULT_EXTRA: Severity.WARN,
         }
     )
 

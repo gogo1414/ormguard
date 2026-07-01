@@ -18,6 +18,10 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Optional server-default validation (`Config(check_server_defaults=True)` /
+  `--check-defaults`): emits `default_missing` / `default_extra` by comparing
+  *presence* of a DB default (not its value, which is dialect-dependent),
+  skipping primary keys. Opt-in, defaults to WARN. (#4)
 - MySQL integration test + CI job (`mysql` marker) alongside the existing
   Postgres one, covering the MySQL dialect's reflection. (#7)
 - Optional index validation (`Config(check_indexes=True)` / `--check-indexes`):

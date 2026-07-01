@@ -56,6 +56,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check-foreign-keys", action="store_true", help="also compare foreign keys (opt-in)",
     )
+    parser.add_argument(
+        "--check-defaults", action="store_true",
+        help="also compare server-default presence (opt-in)",
+    )
     parser.add_argument("--no-nullable", action="store_true", help="skip nullable comparison")
     parser.add_argument("--no-extra", action="store_true", help="do not flag DB-only columns")
     parser.add_argument("--ignore-table", action="append", default=[], help="table to skip (repeatable)")
@@ -79,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         check_types=args.check_types,
         check_indexes=args.check_indexes,
         check_foreign_keys=args.check_foreign_keys,
+        check_server_defaults=args.check_defaults,
         check_nullable=not args.no_nullable,
         flag_extra_columns=not args.no_extra,
         ignore_tables=set(args.ignore_table),
