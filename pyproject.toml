@@ -50,6 +50,7 @@ line-length = 110
 [tool.pytest.ini_options]
 markers = [
     "postgres: integration tests that require a real PostgreSQL (set DATABASE_URL)",
+    "mysql: integration tests that require a real MySQL (set DATABASE_URL_MYSQL)",
 ]
-# Skip the postgres-marked tests in the default (SQLite-only) run.
-addopts = "-m 'not postgres'"
+# Skip DB-backed tests in the default (SQLite-only) run.
+addopts = "-m 'not postgres and not mysql'"
