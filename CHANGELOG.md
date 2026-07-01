@@ -18,6 +18,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- MySQL integration test + CI job (`mysql` marker) alongside the existing
+  Postgres one, covering the MySQL dialect's reflection. (#7)
 - Optional index validation (`Config(check_indexes=True)` / `--check-indexes`):
   emits `index_missing` / `index_extra`, compared by column set + uniqueness,
   skipping PK/unique-constraint-backed indexes. Opt-in, defaults to WARN. (#2)
