@@ -89,6 +89,7 @@ def reflect_actual(
                 name=cname,
                 type_str=type_to_string(col["type"], dialect),
                 nullable=bool(col.get("nullable", True)),
+                has_server_default=col.get("default") is not None,
             )
 
         if config.check_indexes:

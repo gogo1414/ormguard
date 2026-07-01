@@ -12,6 +12,7 @@ class ColumnInfo:
     type_str: str          # normalized (dialect-compiled, upper-cased) type
     nullable: bool
     primary_key: bool = False
+    has_server_default: bool = False   # a DB-side default exists (value not compared)
 
 
 @dataclass(frozen=True)
