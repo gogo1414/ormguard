@@ -30,6 +30,7 @@ FK_MISSING = "fk_missing"                # ORM declares a foreign key the DB lac
 FK_EXTRA = "fk_extra"                    # DB has a foreign key no ORM entity declares (opt-in)
 DEFAULT_MISSING = "default_missing"      # ORM sets server_default but the DB column has none (opt-in)
 DEFAULT_EXTRA = "default_extra"          # DB column has a default the ORM does not declare (opt-in)
+UNPARSED_SQL = "unparsed_migration_sql"  # replay could not interpret raw SQL (v2; needs manual review)
 
 
 @dataclass(frozen=True)

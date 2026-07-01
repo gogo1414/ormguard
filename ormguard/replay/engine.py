@@ -14,7 +14,7 @@ from pathlib import Path
 
 from ..config import Config
 from ..diff import diff_schemas
-from ..model import ValidationReport
+from ..model import UNPARSED_SQL, Finding, Severity, ValidationReport
 from ..orm import build_expected
 from .catalog import _DIALECT, Catalog
 from .loader import load_ordered
@@ -49,11 +49,30 @@ def replay_migrations(
     return catalog
 
 
+def _summarize_sql(sql: str, limit: int = 120) -> str:
+    flat = " ".join(str(sql).split())
+    return flat if len(flat) <= limit else flat[: limit - 1] + "…"
+
+
 def _diff_against_catalog(metadata, catalog: Catalog, config: Config, label):
     md = getattr(metadata, "metadata", metadata)
     expected = build_expected(md, _DIALECT, config)
     actual = {key: catalog.tables.get(key) for key in expected}
-    return ValidationReport(findings=diff_schemas(expected, actual, config), label=label)
+    findings = diff_schemas(expected, actual, config)
+    # Raw SQL the replay could not interpret means the computed schema may be
+    # incomplete — flag it instead of silently pretending the diff is exact.
+    severity = config.severity_for(UNPARSED_SQL, Severity.WARN)
+    if severity != Severity.IGNORE:
+        findings.extend(
+            Finding(
+                severity=severity,
+                kind=UNPARSED_SQL,
+                table="(migration)",
+                detail=f"replay could not interpret: {_summarize_sql(sql)}",
+            )
+            for sql in catalog.unparsed
+        )
+    return ValidationReport(findings=findings, label=label)
 
 
 def validate_migrations(

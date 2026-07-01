@@ -14,6 +14,7 @@ from .model import (
     INDEX_MISSING,
     NULLABLE_MISMATCH,
     TYPE_MISMATCH,
+    UNPARSED_SQL,
     Severity,
 )
 
@@ -57,6 +58,7 @@ class Config:
             FK_EXTRA: Severity.WARN,
             DEFAULT_MISSING: Severity.WARN,
             DEFAULT_EXTRA: Severity.WARN,
+            UNPARSED_SQL: Severity.WARN,
         }
     )
 

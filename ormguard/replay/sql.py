@@ -30,6 +30,14 @@ _DDL_IN_BODY = re.compile(
     r"(?:ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+TABLE)[\s\S]*?;", re.IGNORECASE
 )
 
+# Statement types with no effect on column presence/shape — safe to skip
+# without flagging. Everything else that we can't apply goes to `unparsed`.
+_SCHEMA_IRRELEVANT = (
+    (exp.Insert, exp.Update, exp.Delete, exp.Select, exp.Merge, exp.Set, exp.Comment)
+    if exp is not None
+    else ()
+)
+
 
 def apply_sql(catalog, sql: str, *, default_schema: str | None = None) -> None:
     """Apply the DDL in ``sql`` to ``catalog``. Records anything unhandled in
@@ -76,7 +84,9 @@ def _parse_and_apply(catalog, sql_text: str, default_schema: str | None) -> None
             handled = _apply_stmt(catalog, stmt, default_schema)
         except Exception:
             handled = False
-        if not handled and isinstance(stmt, (exp.Create, exp.Alter, exp.Drop)):
+        if not handled and not isinstance(stmt, _SCHEMA_IRRELEVANT):
+            # Unhandled DDL *and* statements sqlglot only recognized as a bare
+            # Command (unsupported syntax) — flag rather than silently drop.
             catalog.unparsed.append(stmt.sql(dialect="postgres"))
 
 
