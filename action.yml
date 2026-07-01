@@ -1,0 +1,40 @@
+name: "ormguard"
+description: "Fail-fast schema validation for SQLAlchemy — validate a database against your ORM in CI."
+branding:
+  icon: "database"
+  color: "blue"
+
+inputs:
+  database-url:
+    description: "SQLAlchemy database URL to validate against."
+    required: true
+  metadata:
+    description: "ORM metadata as 'package.module:attr' (a declarative Base or MetaData)."
+    required: true
+  args:
+    description: "Extra ormguard CLI flags, e.g. '--schema public --check-indexes'."
+    required: false
+    default: ""
+  version:
+    description: "pip install target for ormguard (e.g. 'ormguard==0.1.0', or a VCS URL until it's on PyPI)."
+    required: false
+    default: "ormguard"
+  python-version:
+    description: "Python version used to run ormguard."
+    required: false
+    default: "3.12"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - shell: bash
+      run: pip install "${{ inputs.version }}"
+    - shell: bash
+      run: >-
+        python -m ormguard
+        --url "${{ inputs.database-url }}"
+        --metadata "${{ inputs.metadata }}"
+        ${{ inputs.args }}

@@ -93,6 +93,19 @@ python -m ormguard --url "$DATABASE_URL" --metadata myapp.db:Base --schema aivel
 # exit code 1 on ERROR findings
 ```
 
+Or drop in the GitHub Action — no install step needed:
+
+```yaml
+- uses: gogo1414/ormguard@v1
+  with:
+    database-url: ${{ secrets.DATABASE_URL }}
+    metadata: myapp.db:Base
+    args: --schema public --check-indexes   # optional
+```
+
+(Until ormguard is on PyPI, set `version:` to a VCS URL, e.g.
+`version: git+https://github.com/gogo1414/ormguard@main`.)
+
 ### Multi-tenant (one ORM, many databases)
 
 ```python
