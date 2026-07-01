@@ -1,0 +1,17 @@
+# Dev hooks for this repo. Install with: pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: ormguard-selfcheck
+        name: ormguard selfcheck
+        entry: python -m ormguard --selfcheck
+        language: system
+        pass_filenames: false
+        always_run: true
