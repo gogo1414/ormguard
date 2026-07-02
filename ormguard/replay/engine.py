@@ -1,9 +1,11 @@
 """Replay engine: run migrations offline against an in-memory catalog, then
 diff the result against ORM metadata.
 
-M1 scope: structural ops (create/drop/alter table & column) via the op recorder
-and DAG ordering. Tenant branching (M2) and raw-SQL DDL parsing (M3) are stubbed
-— ``op.execute`` SQL is collected in ``catalog.unparsed`` rather than applied.
+M1: structural op.* + DAG ordering.
+M2: tenant branching — inject ``platform_type`` (x-argument) and
+``database_name`` (op.get_bind().engine.url.database) so conditional migrations
+execute the right branch per tenant. Raw-SQL DDL parsing (M3) is still stubbed;
+``op.execute`` SQL is collected in ``catalog.unparsed``.
 """
 
 from __future__ import annotations
@@ -14,29 +16,45 @@ from ..config import Config
 from ..diff import diff_schemas
 from ..model import ValidationReport
 from ..orm import build_expected
-from .catalog import Catalog, _DIALECT
+from .catalog import _DIALECT, Catalog
 from .loader import load_ordered
-from .recorder import OpRecorder
+from .recorder import ContextStub, OpRecorder
 
 
 def replay_migrations(
     migrations_dir: str | Path,
     *,
+    platform_type: str | None = None,
     database_name: str | None = None,
 ) -> Catalog:
-    """Replay every migration (root -> head) into a fresh Catalog and return it."""
+    """Replay every migration (root -> head) into a fresh Catalog for one tenant
+    profile and return it. With no profile, unconditional branches run."""
     catalog = Catalog()
     recorder = OpRecorder(catalog, database_name=database_name)
+    x_args = {"platform_type": platform_type} if platform_type is not None else {}
+    context = ContextStub(x_args, bind=recorder.get_bind())
 
     for module in load_ordered(migrations_dir):
-        original = getattr(module, "op", None)
-        module.op = recorder  # migrations reference the module-global `op`
+        orig_op = getattr(module, "op", None)
+        orig_ctx = getattr(module, "context", None)
+        module.op = recorder          # migrations reference the module-global `op`
+        module.context = context      # ...and `context` for get_x_argument()
         try:
             module.upgrade()
         finally:
-            if original is not None:
-                module.op = original
+            if orig_op is not None:
+                module.op = orig_op
+            if orig_ctx is not None:
+                module.context = orig_ctx
     return catalog
+
+
+def _diff_against_catalog(metadata, catalog: Catalog, config: Config, label):
+    md = getattr(metadata, "metadata", metadata)
+    expected = build_expected(md, _DIALECT, config)
+    actual = {key: catalog.tables.get(key) for key in expected}
+    findings = diff_schemas(expected, actual, config, dialect_name=_DIALECT.name)
+    return ValidationReport(findings=findings, label=label)
 
 
 def validate_migrations(
@@ -44,18 +62,44 @@ def validate_migrations(
     migrations_dir: str | Path,
     config: Config | None = None,
     *,
+    platform_type: str | None = None,
     database_name: str | None = None,
     label: str | None = None,
 ) -> ValidationReport:
-    """Diff ORM ``metadata`` against the schema migrations would produce — no
-    database required."""
+    """Diff ORM ``metadata`` against the schema migrations would produce for one
+    tenant profile — no database required."""
     config = config or Config()
-    md = getattr(metadata, "metadata", metadata)
-    expected = build_expected(md, _DIALECT, config)
+    catalog = replay_migrations(
+        migrations_dir, platform_type=platform_type, database_name=database_name
+    )
+    return _diff_against_catalog(metadata, catalog, config, label or database_name)
 
-    catalog = replay_migrations(migrations_dir, database_name=database_name)
-    # Catalog tables are the "actual" side; restrict to expected keys' schemas.
-    actual = {key: catalog.tables.get(key) for key in expected}
 
-    findings = diff_schemas(expected, actual, config)
-    return ValidationReport(findings=findings, label=label or database_name)
+def validate_tenants(
+    metadata,
+    migrations_dir: str | Path,
+    tenants,
+    config: Config | None = None,
+) -> dict[str, ValidationReport]:
+    """Replay + diff for many tenants at once.
+
+    ``tenants`` is an iterable of ``(platform_type, database_name)`` tuples.
+    Returns ``{database_name: ValidationReport}``. Pair with
+    ``ormguard.format_matrix`` for a one-line-per-tenant summary.
+    """
+    config = config or Config()
+    reports: dict[str, ValidationReport] = {}
+    for platform_type, database_name in tenants:
+        # Reports are keyed by database_name; a duplicate would silently drop an
+        # earlier tenant's result, so fail loudly instead.
+        if database_name in reports:
+            raise ValueError(
+                f"duplicate database_name {database_name!r} in tenants — "
+                "each tenant's database_name must be unique"
+            )
+        reports[database_name] = validate_migrations(
+            metadata, migrations_dir, config,
+            platform_type=platform_type, database_name=database_name,
+            label=database_name,
+        )
+    return reports

@@ -113,8 +113,12 @@ CLI: `python -m ormguard replay --migrations migration/versions --metadata src..
   위상정렬 replay. `replay_migrations()` / `validate_migrations()` 공개.
   `tests/test_replay_m1.py`로 검증(임시 마이그레이션 셋, 브랜치/머지 포함).
   `op.execute` raw SQL은 `catalog.unparsed`에 수집(M3에서 파싱).
-- **M2**: 가짜 offline 커넥션/`get_x_argument` 주입 → 분기 동작. `aace-api`의
-  `a149c4ae450c`(order 컬럼, platform 분기) 케이스 재현.
+- **M2** ✅ (구현됨): 테넌트 프로파일 `(platform_type, database_name)` 주입 →
+  `op.get_bind().engine.url.database`·`context.get_x_argument()` 분기 실행.
+  `replay_migrations(platform_type=, database_name=)` ·
+  `validate_tenants(metadata, migrations_dir, tenants)` 공개.
+  `tests/test_replay_m2.py`가 aace AC-1014 패턴(cafe24→order, larosee→rfm,
+  hmall early-return) 재현.
 - **M3**: sqlglot 기반 raw SQL DDL 파서 + `DO $$` 처리. 감사 문서의 #1~#7을
   자동 재현(= eval 통과 기준).
 - **M4**: 테넌트 매트릭스 리포트 + CLI + `unparsed` 플래깅.
