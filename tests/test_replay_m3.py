@@ -94,6 +94,23 @@ def upgrade():
     assert hit and hit[0].severity == Severity.ERROR
 
 
+def test_alter_column_type_applied(tmp_path):
+    body = '''
+from alembic import op
+revision = "0001"
+down_revision = None
+def upgrade():
+    op.execute("""
+        CREATE TABLE s.t (id INTEGER PRIMARY KEY, code VARCHAR(10));
+        ALTER TABLE s.t ALTER COLUMN code TYPE INTEGER;
+    """)
+'''
+    cat = replay_migrations(_write(tmp_path, body))
+    col = cat.tables[("s", "t")].columns["code"]
+    assert "INT" in col.type_str  # VARCHAR(10) -> INTEGER, not left as VARCHAR
+    assert "VARCHAR" not in col.type_str
+
+
 def test_unparseable_sql_surfaces_in_unparsed(tmp_path):
     cat = replay_migrations(_write(tmp_path, MIG_UNPARSED))
     assert cat.unparsed  # function definition could not be interpreted -> surfaced

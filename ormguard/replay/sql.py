@@ -146,6 +146,13 @@ def _apply_action(catalog, table, schema, action) -> None:
         allow_null = action.args.get("allow_null")
         if allow_null is not None:
             catalog.alter_column(table, action.name, nullable=bool(allow_null), schema=schema)
+        # ALTER COLUMN ... TYPE <t> — sqlglot puts the new type in `dtype`.
+        dtype = action.args.get("dtype")
+        if dtype is not None:
+            catalog.alter_column(
+                table, action.name,
+                type_str=dtype.sql(dialect="postgres").upper(), schema=schema,
+            )
     elif isinstance(action, exp.RenameColumn):
         new = action.args.get("to")
         if new is not None:
