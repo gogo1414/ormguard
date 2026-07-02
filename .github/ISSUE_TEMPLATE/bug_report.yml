@@ -1,50 +1,101 @@
-name: Bug report
-description: Report incorrect behavior in ormguard
+name: 🐞 Bug report
+description: Report incorrect behavior — a false positive, a missed drift, or a crash.
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: Thanks for filing a bug. Please fill in the details below so it can be reproduced.
-  - type: input
-    id: version
+      value: |
+        Thanks for filing a bug. The details below let us reproduce it quickly.
+        A **minimal reproduction** (a few lines of models + how you invoke ormguard)
+        is by far the most useful thing you can provide.
+  - type: checkboxes
+    id: preflight
     attributes:
-      label: ormguard version
-      placeholder: "e.g. 0.1.0  (pip show ormguard)"
+      label: Before you start
+      options:
+        - label: I searched [existing issues](https://github.com/gogo1414/ormguard/issues?q=is%3Aissue) and this isn't a duplicate.
+          required: true
+        - label: I'm on the latest ormguard release (or a `main`/branch build I can name below).
+          required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: What kind of bug is it?
+      options:
+        - False positive (reports drift that isn't real)
+        - False negative (misses drift that exists)
+        - Crash / traceback
+        - Wrong or confusing output
+        - Other
     validations:
       required: true
-  - type: input
-    id: python
+  - type: dropdown
+    id: how-run
     attributes:
-      label: Python version
-      placeholder: "e.g. 3.11"
+      label: How are you running ormguard?
+      options:
+        - CLI (`python -m ormguard` / `ormguard`)
+        - Python API (`validate` / `assert_schema`)
+        - FastAPI startup guard (`schema_guard_lifespan`)
+        - GitHub Action (`action.yml`)
+        - Offline replay (v2, `replay`/`validate_migrations`)
+        - Other / not sure
     validations:
       required: true
-  - type: input
-    id: sqlalchemy
-    attributes:
-      label: SQLAlchemy version
-      placeholder: "e.g. 2.0.30"
-    validations:
-      required: true
-  - type: input
-    id: database
-    attributes:
-      label: Database / driver
-      placeholder: "e.g. PostgreSQL 16 (psycopg), SQLite"
   - type: textarea
     id: what-happened
     attributes:
       label: What happened, and what did you expect?
+      description: Include the specific finding kind if relevant (e.g. `type_mismatch`, `column_missing`).
+      placeholder: ormguard reported `type_mismatch` on `users.status`, but the DB and ORM types match.
     validations:
       required: true
   - type: textarea
     id: repro
     attributes:
       label: Minimal reproduction
-      description: Model definition plus how you invoke ormguard.
+      description: Model definition(s) plus exactly how you invoke ormguard. Trim to the smallest case that still shows the bug.
       render: python
+    validations:
+      required: true
   - type: textarea
     id: output
     attributes:
       label: ormguard output / traceback
+      description: The full report or stack trace. Run with the same flags you normally use.
       render: shell
+  - type: input
+    id: version
+    attributes:
+      label: ormguard version
+      placeholder: "0.1.0  (pip show ormguard)"
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.11"
+    validations:
+      required: true
+  - type: input
+    id: sqlalchemy
+    attributes:
+      label: SQLAlchemy version
+      placeholder: "2.0.30"
+    validations:
+      required: true
+  - type: input
+    id: database
+    attributes:
+      label: Database / driver
+      description: Include the server version and driver — reflection differs across dialects.
+      placeholder: "PostgreSQL 16 (psycopg) / MySQL 8 (pymysql) / SQLite"
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Config / flags in use
+      description: Any non-default `Config(...)`, CLI flags, or `ormguard.toml` relevant to the bug.
+      render: python

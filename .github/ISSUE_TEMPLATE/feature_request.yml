@@ -1,19 +1,57 @@
-name: Feature request
-description: Suggest an idea or improvement for ormguard
+name: ✨ Feature request
+description: Suggest a new check, flag, integration, or improvement.
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! ormguard's guiding principle is **low false positives** —
+        presence problems are errors, structural nuances are opt-in warnings. Proposals
+        that fit that model are easiest to land.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched [existing issues](https://github.com/gogo1414/ormguard/issues?q=is%3Aissue) and this isn't already requested.
+          required: true
   - type: textarea
     id: problem
     attributes:
       label: Problem / motivation
-      description: What are you trying to do that ormguard doesn't support today?
+      description: What are you trying to do that ormguard doesn't support today? What breaks or goes unnoticed without it?
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
       label: Proposed solution
+      description: What should ormguard do? If it's a new check, name the finding kind and its default severity; if a flag, name it.
+      placeholder: "Add `check_collation=True` → emits `collation_mismatch` (WARN) when a text column's collation differs."
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Validation checks (new finding kind / comparison)
+        - CLI / output formats
+        - FastAPI or other framework integration
+        - GitHub Action / CI
+        - Offline replay (v2)
+        - Docs
+        - Other
+    validations:
+      required: true
   - type: textarea
     id: alternatives
     attributes:
       label: Alternatives considered
+      description: Workarounds you've tried, or other designs you weighed.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I'm willing to open a PR for this.

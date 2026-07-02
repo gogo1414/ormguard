@@ -1,5 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Question / discussion
+  - name: 💬 Question / usage help
     url: https://github.com/gogo1414/ormguard/discussions
-    about: Ask usage questions and share ideas (enable Discussions in repo settings).
+    about: Ask how to use ormguard or share an idea (enable Discussions in repo settings).
+  - name: 📖 Documentation
+    url: https://github.com/gogo1414/ormguard#readme
+    about: Quickstart, usage, and every check — read this first.
+  - name: 🔒 Security vulnerability
+    url: https://github.com/gogo1414/ormguard/security/advisories/new
+    about: Report a security issue privately, not as a public issue.
