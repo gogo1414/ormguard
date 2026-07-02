@@ -1,0 +1,18 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai/reference/configuration
+# AI code review runs via the CodeRabbit GitHub App (install at
+# https://github.com/apps/coderabbitai). No API key or workflow needed.
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - develop
+      - main
+chat:
+  auto_reply: true
