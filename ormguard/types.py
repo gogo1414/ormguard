@@ -76,22 +76,8 @@ def _canonical_args(args: str) -> str:
     return ",".join(parts)
 
 
-def normalize_type(type_str: str, dialect_name: str = "") -> str:
-    """Return a canonical form of a compiled type string for comparison.
-
-    Folding is currently dialect-agnostic: the rules (synonyms, integer display
-    widths like ``INT(11)``, ``TINYINT(1)`` as boolean) are applied uniformly.
-    This is safe because those spellings only arise on the dialect that emits
-    them — e.g. only MySQL produces ``TINYINT(1)`` or int display widths, so
-    folding them everywhere never mis-normalizes a Postgres or SQLite type.
-    ``dialect_name`` is accepted for forward compatibility with future
-    dialect-specific rules and is intentionally unused today.
-    """
-    if not type_str:
-        return ""
-
-    s = " ".join(type_str.upper().split())
-
+def _normalize_scalar(s: str) -> str:
+    """Normalize a non-array type string (synonyms, display widths, arg spacing)."""
     m = _PAREN_RE.search(s)
     if m:
         args = m.group(1)
@@ -112,6 +98,36 @@ def normalize_type(type_str: str, dialect_name: str = "") -> str:
 
     args = _canonical_args(args)
     return f"{canonical}({args})" if args else canonical
+
+
+def normalize_type(type_str: str, dialect_name: str = "") -> str:
+    """Return a canonical form of a compiled type string for comparison.
+
+    Folding is dialect-agnostic: synonyms, integer display widths (``INT(11)``),
+    ``TINYINT(1)`` as boolean, and array spellings are normalized uniformly —
+    safe because each spelling only arises on the dialect that emits it. Length
+    and precision are **kept** (``VARCHAR(255)`` ≠ ``TEXT``, ``NUMERIC(10,2)`` ≠
+    ``NUMERIC(12,2)``) since those are real differences. ``dialect_name`` is
+    reserved for future dialect-specific rules and is unused today.
+    """
+    if not type_str:
+        return ""
+
+    s = " ".join(type_str.upper().split())
+
+    # Peel array markers so the element type is normalized: INTEGER[],
+    # NUMERIC(10,2)[][], "INTEGER ARRAY", and the Postgres internal name _INT4.
+    suffix = ""
+    while s.endswith("[]"):
+        suffix += "[]"
+        s = s[:-2].rstrip()
+    if s.endswith(" ARRAY"):
+        suffix += "[]"
+        s = s[: -len(" ARRAY")].rstrip()
+    if s.startswith("_") and len(s) > 1:  # pg internal array name, e.g. _INT4
+        s, suffix = s[1:], suffix + "[]"
+
+    return _normalize_scalar(s) + suffix
 
 
 def types_equal(expected: str, actual: str, dialect_name: str = "") -> bool:
