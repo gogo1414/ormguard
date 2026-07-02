@@ -128,6 +128,10 @@ adheres to [Semantic Versioning](https://semver.org/).
   `TINYINT(1)`/`BOOLEAN`, and `TIMESTAMP` spellings — so `check_types` produces
   far fewer false positives (genuine length/precision/tz differences still
   flagged). (#6)
+- Type normalization now folds array spellings too — `INTEGER[]`, `INTEGER ARRAY`,
+  and the Postgres internal `_int4` all compare equal, with the element type
+  normalized — while dimensionality, `VARCHAR(n)`/`TEXT`, `NUMERIC` precision, and
+  `JSONB`/`JSON` stay distinct. (#42)
 - Version is now derived from git tags via `hatch-vcs` (single source of truth);
   removed the duplicated hardcoded version in `pyproject.toml` and
   `ormguard/__init__.py`.

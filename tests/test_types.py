@@ -41,6 +41,12 @@ from ormguard.types import normalize_type, types_equal
         ("BYTEA", "BLOB"),
         # case / whitespace only
         ("varchar(255)", "VARCHAR(255)"),
+        # arrays: [] / ARRAY keyword / Postgres internal _name, element folded
+        ("INTEGER[]", "INT4[]"),
+        ("INTEGER[]", "_INT4"),
+        ("INTEGER[]", "INTEGER ARRAY"),
+        ("VARCHAR(255)[]", "CHARACTER VARYING(255)[]"),
+        ("NUMERIC(10, 2)[][]", "DECIMAL(10,2)[][]"),
     ],
 )
 def test_equivalent_types_normalize_equal(a, b):
@@ -57,6 +63,9 @@ def test_equivalent_types_normalize_equal(a, b):
         ("BOOLEAN", "SMALLINT"),
         ("TINYINT(4)", "BOOLEAN"),          # only TINYINT(1) is boolean
         ("TIMESTAMP", "TIMESTAMPTZ"),        # tz-awareness matters
+        ("INTEGER[]", "INTEGER"),            # array vs scalar
+        ("INTEGER[]", "INTEGER[][]"),        # array dimensionality
+        ("JSONB", "JSON"),                   # binary vs text json differ
     ],
 )
 def test_distinct_types_stay_distinct(a, b):
