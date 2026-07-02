@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from sqlalchemy import MetaData
+
 from .config import Config
 from .diff import diff_schemas
 from .model import SchemaValidationError, ValidationReport
@@ -9,8 +11,23 @@ from .orm import build_expected
 from .reflect import reflect_actual
 
 
+def _merge_metadata(sources) -> MetaData:
+    """Union an iterable of declarative Bases / MetaData into one MetaData.
+    First-seen wins on a duplicate table key; later duplicates are skipped."""
+    merged = MetaData()
+    for src in sources:
+        md = getattr(src, "metadata", src)
+        for table in md.tables.values():
+            if table.key not in merged.tables:
+                table.to_metadata(merged)
+    return merged
+
+
 def _resolve_metadata(target):
-    """Accept either a declarative Base (has ``.metadata``) or a MetaData."""
+    """Accept a declarative Base (has ``.metadata``), a MetaData, or a **list**
+    of either — a list is merged into a single MetaData."""
+    if isinstance(target, (list, tuple, set)):
+        return _merge_metadata(target)
     return getattr(target, "metadata", target)
 
 
