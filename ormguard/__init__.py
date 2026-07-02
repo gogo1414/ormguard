@@ -30,6 +30,7 @@ from .model import (
     ValidationReport,
 )
 from .output import github_annotations, to_json, to_sarif
+from .usage import columns_in_sql, format_ranked, rank_findings
 
 try:
     __version__ = _pkg_version("ormguard")
@@ -50,6 +51,9 @@ __all__ = [
     "to_json",
     "to_sarif",
     "github_annotations",
+    "columns_in_sql",
+    "rank_findings",
+    "format_ranked",
     "Config",
     "Severity",
     "Finding",

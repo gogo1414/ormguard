@@ -18,6 +18,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Usage-aware ranking (`ormguard/usage.py`): `columns_in_sql` extracts the
+  table/column identifiers your app actually queries (sqlglot, with a permissive
+  fallback), and `rank_findings` / `format_ranked` split findings into
+  code-referenced **high** priority vs unused **low** priority — turning a flood
+  of findings into a prioritized list. Source-agnostic: feed it SQL from a
+  SQLAlchemy listener or a query log. (#38)
 - Table ownership tiers (`Config(external_tables={...})`): externally-owned
   tables (ETL marts, …) are validated leniently — a missing table/column is a
   WARN instead of a fatal ERROR, and DB-only columns are never flagged. Combine
