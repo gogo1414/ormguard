@@ -19,12 +19,14 @@ from .model import (
     Finding,
     Severity,
 )
+from .types import normalize_type
 
 
 def diff_schemas(
     expected: dict[tuple[str | None, str], TableInfo],
     actual: dict[tuple[str | None, str], TableInfo | None],
     config: Config,
+    dialect_name: str = "",
 ) -> list[Finding]:
     findings: list[Finding] = []
 
@@ -77,7 +79,9 @@ def diff_schemas(
                     )
                 )
 
-            if config.check_types and ecol.type_str != acol.type_str:
+            if config.check_types and normalize_type(
+                ecol.type_str, dialect_name
+            ) != normalize_type(acol.type_str, dialect_name):
                 findings.append(
                     Finding(
                         severity=config.severity_for(TYPE_MISMATCH, Severity.WARN),
