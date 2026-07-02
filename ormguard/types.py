@@ -79,8 +79,13 @@ def _canonical_args(args: str) -> str:
 def normalize_type(type_str: str, dialect_name: str = "") -> str:
     """Return a canonical form of a compiled type string for comparison.
 
-    Dialect-agnostic synonym folding plus a few dialect-specific rules
-    (MySQL integer display widths, ``TINYINT(1)`` as boolean).
+    Folding is currently dialect-agnostic: the rules (synonyms, integer display
+    widths like ``INT(11)``, ``TINYINT(1)`` as boolean) are applied uniformly.
+    This is safe because those spellings only arise on the dialect that emits
+    them — e.g. only MySQL produces ``TINYINT(1)`` or int display widths, so
+    folding them everywhere never mis-normalizes a Postgres or SQLite type.
+    ``dialect_name`` is accepted for forward compatibility with future
+    dialect-specific rules and is intentionally unused today.
     """
     if not type_str:
         return ""
