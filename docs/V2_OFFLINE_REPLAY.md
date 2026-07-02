@@ -1,6 +1,6 @@
-# ormguard v2 — 오프라인 멀티테넌트 Alembic Replay (설계 착수)
+# ormguard v2 — 오프라인 멀티테넌트 Alembic Replay
 
-> 상태: **설계(spec)**. 구현 전. v1(런타임 validate)과 독립적으로 켤 수 있는 모드.
+> 상태: **M1·M2·M3 구현 완료** (`ormguard/replay/`), M4 남음. v1(런타임 validate)과 독립적으로 켤 수 있는 모드.
 
 ## 1. 무엇을, 왜
 
@@ -119,8 +119,10 @@ CLI: `python -m ormguard replay --migrations migration/versions --metadata src..
   `validate_tenants(metadata, migrations_dir, tenants)` 공개.
   `tests/test_replay_m2.py`가 aace AC-1014 패턴(cafe24→order, larosee→rfm,
   hmall early-return) 재현.
-- **M3**: sqlglot 기반 raw SQL DDL 파서 + `DO $$` 처리. 감사 문서의 #1~#7을
-  자동 재현(= eval 통과 기준).
+- **M3** ✅ (구현됨, `ormguard/replay/sql.py`): sqlglot 기반 `op.execute` raw SQL
+  DDL 파서 — CREATE/DROP TABLE, ALTER TABLE ADD/DROP/ALTER/RENAME COLUMN,
+  `DO $$ … $$` 블록(내부 DDL 추출). 해석 불가 SQL은 `catalog.unparsed`로 노출
+  (조용히 버리지 않음). `sqlglot` extra 추가. `tests/test_replay_m3.py`로 검증.
 - **M4**: 테넌트 매트릭스 리포트 + CLI + `unparsed` 플래깅.
 
 ## 8. eval (정답지)

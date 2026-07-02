@@ -108,9 +108,14 @@ class OpRecorder:
 
     # -- deferred to M3 ------------------------------------------------------
     def execute(self, sql, *a, **k):
-        # M3 will parse DDL out of raw SQL; for now record it as unparsed so it
-        # is surfaced rather than silently dropped.
-        self.catalog.unparsed.append(str(sql))
+        # Parse DDL out of raw SQL and apply it (M3). Unhandled SQL is recorded
+        # in catalog.unparsed rather than silently dropped.
+        try:
+            from .sql import apply_sql
+        except ImportError:  # sqlglot extra not installed
+            self.catalog.unparsed.append(str(sql))
+            return
+        apply_sql(self.catalog, str(sql))
 
     def get_bind(self):
         return self._bind
