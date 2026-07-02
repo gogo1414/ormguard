@@ -18,6 +18,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Table ownership tiers (`Config(external_tables={...})`): externally-owned
+  tables (ETL marts, …) are validated leniently — a missing table/column is a
+  WARN instead of a fatal ERROR, and DB-only columns are never flagged. Combine
+  with `ignore_columns` to check only the subset you map. Turns ormguard from a
+  differ into a contract-enforcement tool where you own the contract. (#36)
 - Machine-readable output (`ormguard/output.py` + CLI `--format
   text|json|sarif|github`): `to_json`, `to_sarif` (SARIF 2.1.0 for GitHub code
   scanning, one rule per finding kind, logical locations), and

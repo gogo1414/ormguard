@@ -37,10 +37,15 @@ def diff_schemas(
         schema, table = key
         act = actual.get(key)
 
+        # Externally-owned tables (ETL marts, …): ormguard doesn't own the
+        # schema, so "missing" is a WARN rather than a fatal ERROR.
+        external = config.is_external(table)
+        missing_default = Severity.WARN if external else Severity.ERROR
+
         if act is None:
             findings.append(
                 Finding(
-                    severity=config.severity_for(TABLE_MISSING, Severity.ERROR),
+                    severity=config.severity_for(TABLE_MISSING, missing_default),
                     kind=TABLE_MISSING,
                     schema=schema,
                     table=table,
@@ -55,7 +60,7 @@ def diff_schemas(
             if acol is None:
                 findings.append(
                     Finding(
-                        severity=config.severity_for(COLUMN_MISSING, Severity.ERROR),
+                        severity=config.severity_for(COLUMN_MISSING, missing_default),
                         kind=COLUMN_MISSING,
                         schema=schema,
                         table=table,
@@ -161,8 +166,9 @@ def diff_schemas(
                     )
                 )
 
-        # Columns in the DB that no entity maps.
-        if config.flag_extra_columns:
+        # Columns in the DB that no entity maps. Externally-owned tables are
+        # expected to carry columns ormguard doesn't map, so never flag those.
+        if config.flag_extra_columns and not external:
             for cname in act.columns.keys() - exp.columns.keys():
                 findings.append(
                     Finding(
