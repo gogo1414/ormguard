@@ -50,6 +50,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- `type_mismatch` now normalizes types per dialect before comparing — folds
+  `INT(11)`/`INTEGER`, `CHARACTER VARYING`/`VARCHAR`, `DOUBLE PRECISION`/`DOUBLE`,
+  `TINYINT(1)`/`BOOLEAN`, and `TIMESTAMP` spellings — so `check_types` produces
+  far fewer false positives (genuine length/precision/tz differences still
+  flagged). (#6)
 - Version is now derived from git tags via `hatch-vcs` (single source of truth);
   removed the duplicated hardcoded version in `pyproject.toml` and
   `ormguard/__init__.py`.

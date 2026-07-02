@@ -24,7 +24,7 @@ def validate(engine, target, config: Config | None = None, *, label: str | None 
 
     expected = build_expected(metadata, dialect, config)
     actual = reflect_actual(engine, expected, config)
-    findings = diff_schemas(expected, actual, config)
+    findings = diff_schemas(expected, actual, config, dialect_name=dialect.name)
 
     if label is None:
         label = getattr(getattr(engine, "url", None), "database", None)
