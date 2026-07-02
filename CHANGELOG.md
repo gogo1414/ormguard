@@ -18,6 +18,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Views & materialized views are no longer false `table_missing`: an ORM-mapped
+  name backed by a view or materialized view is reflected (columns compared) and
+  marked (`TableInfo.relkind` / `is_view`) instead of reported as a missing
+  table. Index/FK/CHECK checks are skipped for views. (#43)
+- `Config(server_managed_columns={"created_at", ...})`: columns whose
+  nullability / server-default are DB-managed skip `nullable_mismatch` and
+  `default_*` noise (presence and type are still checked). Match by bare column
+  name or `table.column`. (#43)
 - Optional enum validation (`Config(check_enums=True)`): emits `enum_mismatch`
   when an enum column's allowed values differ between the ORM and the database
   (native enums on Postgres/MySQL), naming the differing values. Opt-in, WARN,

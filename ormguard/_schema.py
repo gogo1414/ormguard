@@ -60,10 +60,18 @@ class TableInfo:
         default_factory=dict
     )
     checks: dict[str, CheckConstraintInfo] = field(default_factory=dict)  # keyed by constraint name
+    # What the DB object actually is: "table" (default), "view", or
+    # "materialized_view". An ORM-mapped name backed by a view/MV is present,
+    # not a `table_missing`.
+    relkind: str = "table"
 
     @property
     def key(self) -> tuple[str | None, str]:
         return (self.schema, self.name)
+
+    @property
+    def is_view(self) -> bool:
+        return self.relkind in ("view", "materialized_view")
 
 
 def type_to_string(type_engine, dialect) -> str:

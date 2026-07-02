@@ -41,6 +41,12 @@ class Config:
     # Columns to skip, as "table.column" (e.g. "users.legacy_flag").
     ignore_columns: set[str] = field(default_factory=set)
 
+    # Columns whose nullability / server-default are managed by the database
+    # (triggers, DEFAULT now(), etc.), so nullable_mismatch and default_* are
+    # noise on them — presence and type are still checked. Match by bare column
+    # name ("created_at") or "table.column" ("orders.updated_at").
+    server_managed_columns: set[str] = field(default_factory=set)
+
     # Toggles.
     check_nullable: bool = True
     check_types: bool = False  # dialect-dependent; opt in once tuned for your DB.
@@ -72,6 +78,9 @@ class Config:
 
     def severity_for(self, kind: str, default: Severity) -> Severity:
         return self.severity_overrides.get(kind, default)
+
+    def is_server_managed(self, table: str, column: str) -> bool:
+        return column in self.server_managed_columns or f"{table}.{column}" in self.server_managed_columns
 
     def is_table_ignored(self, table: str) -> bool:
         return table in self.ignore_tables

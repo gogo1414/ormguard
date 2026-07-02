@@ -65,9 +65,17 @@ def diff_schemas(
                 )
                 continue
 
+            server_managed = config.is_server_managed(table, cname)
+
             # PK columns are always NOT NULL; some dialects (SQLite) misreport
             # them as nullable on reflection, so skip the nullable check there.
-            if config.check_nullable and not ecol.primary_key and ecol.nullable != acol.nullable:
+            # Server-managed columns (created_at, …) also skip nullable noise.
+            if (
+                config.check_nullable
+                and not ecol.primary_key
+                and not server_managed
+                and ecol.nullable != acol.nullable
+            ):
                 findings.append(
                     Finding(
                         severity=config.severity_for(NULLABLE_MISMATCH, Severity.WARN),
@@ -101,6 +109,7 @@ def diff_schemas(
             if (
                 config.check_server_defaults
                 and not ecol.primary_key
+                and not server_managed
                 and ecol.has_server_default != acol.has_server_default
             ):
                 if ecol.has_server_default:

@@ -83,44 +83,71 @@ def _reflect_indexes(inspector, info: TableInfo, name: str, schema: str | None, 
         info.indexes[index.key] = index
 
 
+def _reflect_columns(inspector, info: TableInfo, name: str, schema: str | None, config: Config, dialect) -> None:
+    for col in inspector.get_columns(name, schema=schema):
+        cname = col["name"]
+        if config.is_column_ignored(name, cname):
+            continue
+        col_type = col["type"]
+        enum_values = getattr(col_type, "enums", None) if config.check_enums else None
+        info.columns[cname] = ColumnInfo(
+            name=cname,
+            type_str=type_to_string(col_type, dialect),
+            nullable=bool(col.get("nullable", True)),
+            has_server_default=col.get("default") is not None,
+            enum_values=tuple(enum_values) if enum_values else None,
+        )
+
+
+def _relkind(inspector, name: str, schema: str | None) -> str | None:
+    """Return "table" / "view" / "materialized_view" for an existing object, or
+    None if the name doesn't exist as any of them."""
+    if inspector.has_table(name, schema=schema):
+        return "table"
+    try:
+        if name in inspector.get_view_names(schema=schema):
+            return "view"
+    except Exception:  # pragma: no cover - dialect without view reflection
+        pass
+    try:  # materialized views: Postgres (SQLAlchemy 2.0+); not all dialects
+        if name in inspector.get_materialized_view_names(schema=schema):
+            return "materialized_view"
+    except Exception:
+        pass
+    return None
+
+
 def reflect_actual(
     engine,
     expected: dict[tuple[str | None, str], TableInfo],
     config: Config,
 ) -> dict[tuple[str | None, str], TableInfo | None]:
     """For each expected (schema, table), return its DB TableInfo, or None if
-    the table is missing from the database."""
+    the object is absent. An ORM name backed by a view or materialized view is
+    reflected (columns compared) and marked, not reported as ``table_missing``."""
     inspector = inspect(engine)
     dialect = engine.dialect
     actual: dict[tuple[str | None, str], TableInfo | None] = {}
 
     for key, exp in expected.items():
         schema, name = key
-        if not inspector.has_table(name, schema=schema):
+        relkind = _relkind(inspector, name, schema)
+        if relkind is None:
             actual[key] = None
             continue
 
-        info = TableInfo(name=name, schema=schema)
-        for col in inspector.get_columns(name, schema=schema):
-            cname = col["name"]
-            if config.is_column_ignored(name, cname):
-                continue
-            col_type = col["type"]
-            enum_values = getattr(col_type, "enums", None) if config.check_enums else None
-            info.columns[cname] = ColumnInfo(
-                name=cname,
-                type_str=type_to_string(col_type, dialect),
-                nullable=bool(col.get("nullable", True)),
-                has_server_default=col.get("default") is not None,
-                enum_values=tuple(enum_values) if enum_values else None,
-            )
+        info = TableInfo(name=name, schema=schema, relkind=relkind)
+        _reflect_columns(inspector, info, name, schema, config, dialect)
 
-        if config.check_indexes:
-            _reflect_indexes(inspector, info, name, schema, config)
-        if config.check_foreign_keys:
-            _reflect_foreign_keys(inspector, info, name, schema, config)
-        if config.check_constraints:
-            _reflect_checks(inspector, info, name, schema)
+        # Indexes / FKs / CHECK constraints only apply to base tables; views and
+        # materialized views don't carry them in a comparable way.
+        if relkind == "table":
+            if config.check_indexes:
+                _reflect_indexes(inspector, info, name, schema, config)
+            if config.check_foreign_keys:
+                _reflect_foreign_keys(inspector, info, name, schema, config)
+            if config.check_constraints:
+                _reflect_checks(inspector, info, name, schema)
 
         actual[key] = info
     return actual
