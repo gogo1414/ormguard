@@ -17,6 +17,7 @@ from .model import (
     INDEX_MISSING,
     NULLABLE_MISMATCH,
     TYPE_MISMATCH,
+    UNPARSED_SQL,
     Severity,
 )
 
@@ -65,6 +66,7 @@ class Config:
             CHECK_MISSING: Severity.WARN,
             CHECK_EXTRA: Severity.WARN,
             ENUM_MISMATCH: Severity.WARN,
+            UNPARSED_SQL: Severity.WARN,
         }
     )
 

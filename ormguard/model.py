@@ -33,6 +33,7 @@ DEFAULT_EXTRA = "default_extra"          # DB column has a default the ORM does 
 CHECK_MISSING = "check_missing"          # ORM declares a (named) CHECK constraint the DB lacks (opt-in)
 CHECK_EXTRA = "check_extra"              # DB has a (named) CHECK constraint the ORM does not declare (opt-in)
 ENUM_MISMATCH = "enum_mismatch"          # ORM and DB disagree on an enum column's allowed values (opt-in)
+UNPARSED_SQL = "unparsed_migration_sql"  # replay could not interpret raw SQL (v2; needs manual review)
 
 
 @dataclass(frozen=True)
