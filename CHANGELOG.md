@@ -18,6 +18,14 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Optional enum validation (`Config(check_enums=True)`): emits `enum_mismatch`
+  when an enum column's allowed values differ between the ORM and the database
+  (native enums on Postgres/MySQL), naming the differing values. Opt-in, WARN,
+  and skipped when either side exposes no enum values. (#5)
+- Optional CHECK-constraint validation (`Config(check_constraints=True)`): emits
+  `check_missing` / `check_extra`, compared by constraint *name* only (the
+  expression text is dialect-rewritten on reflection, so it is not diffed);
+  unnamed constraints are skipped. Opt-in, WARN. (#5)
 - Webhook notifications: `--notify-webhook URL` (and `--notify-on error|any`)
   POST the report to a Slack- or Discord-compatible incoming webhook when drift
   is found — one payload works for both, standard library only, best-effort.

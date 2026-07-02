@@ -10,8 +10,28 @@ from __future__ import annotations
 
 from sqlalchemy import inspect
 
-from ._schema import ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, type_to_string
+from ._schema import (
+    CheckConstraintInfo,
+    ColumnInfo,
+    ForeignKeyInfo,
+    IndexInfo,
+    TableInfo,
+    type_to_string,
+)
 from .config import Config
+
+
+def _reflect_checks(inspector, info: TableInfo, name: str, schema: str | None) -> None:
+    """Reflect named CHECK constraints into ``info.checks`` (keyed by name).
+    Best-effort: some dialects/versions don't support check reflection."""
+    try:
+        constraints = inspector.get_check_constraints(name, schema=schema)
+    except Exception:  # pragma: no cover - dialect without check reflection
+        return
+    for ck in constraints:
+        cname = ck.get("name")
+        if cname:
+            info.checks[cname] = CheckConstraintInfo(name=cname)
 
 
 def _reflect_foreign_keys(inspector, info: TableInfo, name: str, schema: str | None, config: Config) -> None:
@@ -85,17 +105,22 @@ def reflect_actual(
             cname = col["name"]
             if config.is_column_ignored(name, cname):
                 continue
+            col_type = col["type"]
+            enum_values = getattr(col_type, "enums", None) if config.check_enums else None
             info.columns[cname] = ColumnInfo(
                 name=cname,
-                type_str=type_to_string(col["type"], dialect),
+                type_str=type_to_string(col_type, dialect),
                 nullable=bool(col.get("nullable", True)),
                 has_server_default=col.get("default") is not None,
+                enum_values=tuple(enum_values) if enum_values else None,
             )
 
         if config.check_indexes:
             _reflect_indexes(inspector, info, name, schema, config)
         if config.check_foreign_keys:
             _reflect_foreign_keys(inspector, info, name, schema, config)
+        if config.check_constraints:
+            _reflect_checks(inspector, info, name, schema)
 
         actual[key] = info
     return actual

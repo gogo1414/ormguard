@@ -30,6 +30,9 @@ FK_MISSING = "fk_missing"                # ORM declares a foreign key the DB lac
 FK_EXTRA = "fk_extra"                    # DB has a foreign key no ORM entity declares (opt-in)
 DEFAULT_MISSING = "default_missing"      # ORM sets server_default but the DB column has none (opt-in)
 DEFAULT_EXTRA = "default_extra"          # DB column has a default the ORM does not declare (opt-in)
+CHECK_MISSING = "check_missing"          # ORM declares a (named) CHECK constraint the DB lacks (opt-in)
+CHECK_EXTRA = "check_extra"              # DB has a (named) CHECK constraint the ORM does not declare (opt-in)
+ENUM_MISMATCH = "enum_mismatch"          # ORM and DB disagree on an enum column's allowed values (opt-in)
 
 
 @dataclass(frozen=True)
