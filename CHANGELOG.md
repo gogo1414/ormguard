@@ -18,6 +18,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Cross-tenant column analysis (`reflect_fleet` + `column_analysis` /
+  `format_column_analysis`): reflects each tenant's actual columns for the mapped
+  tables and reports, per table, the **intersection** (columns present on every
+  tenant — safe to map) vs **partial** columns (with which tenants have them) —
+  the basis for slimming an ETL model. (#40)
 - `validate` / `assert_schema` now accept a **list** of declarative Bases or
   MetaData as the target (merged into one), so multi-Base apps no longer merge
   metadata by hand. `validate_fleet` reuses this for per-tenant Bases. (#41)
