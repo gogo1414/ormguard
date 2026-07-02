@@ -106,6 +106,24 @@ def _add_check_flags(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _print_report(report, fmt: str) -> None:
+    if fmt == "json":
+        from .output import to_json
+
+        print(to_json(report))
+    elif fmt == "sarif":
+        from .output import to_sarif
+
+        print(to_sarif(report))
+    elif fmt == "github":
+        from .output import github_annotations
+
+        for line in github_annotations(report):
+            print(line)
+    else:
+        print(report.format_text())
+
+
 def _config_from_args(args) -> Config:
     return Config(
         schemas=set(args.schema) if args.schema else None,
@@ -224,6 +242,10 @@ def _main_live(argv: list[str]) -> int:
         "--write-baseline", action="store_true",
         help="write the current findings to --baseline and exit 0 (snapshot accepted drift)",
     )
+    parser.add_argument(
+        "--format", choices=("text", "json", "sarif", "github"), default="text",
+        help="output format: human text (default), json, SARIF 2.1.0, or GitHub annotations",
+    )
     args = parser.parse_args(argv)
 
     if args.write_baseline and not args.baseline:
@@ -258,7 +280,7 @@ def _main_live(argv: list[str]) -> int:
 
         report = apply_baseline(report, load(args.baseline))
 
-    print(report.format_text())
+    _print_report(report, args.format)
 
     if args.notify_webhook:
         should_notify = report.has_errors() if args.notify_on == "error" else bool(report.findings)

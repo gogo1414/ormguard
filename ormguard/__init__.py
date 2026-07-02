@@ -29,6 +29,7 @@ from .model import (
     Severity,
     ValidationReport,
 )
+from .output import github_annotations, to_json, to_sarif
 
 try:
     __version__ = _pkg_version("ormguard")
@@ -46,6 +47,9 @@ __all__ = [
     "format_matrix",
     "format_tenant_matrix",
     "find_divergence",
+    "to_json",
+    "to_sarif",
+    "github_annotations",
     "Config",
     "Severity",
     "Finding",
