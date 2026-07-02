@@ -53,7 +53,8 @@ def _diff_against_catalog(metadata, catalog: Catalog, config: Config, label):
     md = getattr(metadata, "metadata", metadata)
     expected = build_expected(md, _DIALECT, config)
     actual = {key: catalog.tables.get(key) for key in expected}
-    return ValidationReport(findings=diff_schemas(expected, actual, config), label=label)
+    findings = diff_schemas(expected, actual, config, dialect_name=_DIALECT.name)
+    return ValidationReport(findings=findings, label=label)
 
 
 def validate_migrations(
@@ -89,6 +90,13 @@ def validate_tenants(
     config = config or Config()
     reports: dict[str, ValidationReport] = {}
     for platform_type, database_name in tenants:
+        # Reports are keyed by database_name; a duplicate would silently drop an
+        # earlier tenant's result, so fail loudly instead.
+        if database_name in reports:
+            raise ValueError(
+                f"duplicate database_name {database_name!r} in tenants — "
+                "each tenant's database_name must be unique"
+            )
         reports[database_name] = validate_migrations(
             metadata, migrations_dir, config,
             platform_type=platform_type, database_name=database_name,

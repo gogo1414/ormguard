@@ -99,3 +99,17 @@ def test_validate_tenants_matrix(migrations_dir):
     # matrix renders one line per tenant
     matrix = format_matrix(reports)
     assert "cafe24shop" in matrix and "larosee_co_kr" in matrix
+
+
+def test_duplicate_database_name_raises(migrations_dir):
+    Base = declarative_base()
+
+    class User(Base):
+        __tablename__ = "users"
+        id = Column(Integer, primary_key=True)
+        email = Column(String(255), nullable=False)
+
+    # Two tenants sharing a database_name would collide in the keyed result.
+    tenants = [("cafe24", "shop"), ("larosee", "shop")]
+    with pytest.raises(ValueError, match="duplicate database_name"):
+        validate_tenants(Base, migrations_dir, tenants)
