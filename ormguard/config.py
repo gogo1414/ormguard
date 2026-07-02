@@ -38,6 +38,12 @@ class Config:
     # Tables to skip entirely (unqualified name, e.g. "alembic_version").
     ignore_tables: set[str] = field(default_factory=set)
 
+    # Externally-owned tables (e.g. ETL-managed marts) — ormguard doesn't own
+    # their schema, so a missing table/column is a WARN (not a fatal ERROR) and
+    # DB-only columns are never flagged. Combine with ``ignore_columns`` to check
+    # only the subset of columns you actually map. Unqualified names.
+    external_tables: set[str] = field(default_factory=set)
+
     # Columns to skip, as "table.column" (e.g. "users.legacy_flag").
     ignore_columns: set[str] = field(default_factory=set)
 
@@ -81,6 +87,9 @@ class Config:
 
     def is_server_managed(self, table: str, column: str) -> bool:
         return column in self.server_managed_columns or f"{table}.{column}" in self.server_managed_columns
+
+    def is_external(self, table: str) -> bool:
+        return table in self.external_tables
 
     def is_table_ignored(self, table: str) -> bool:
         return table in self.ignore_tables
