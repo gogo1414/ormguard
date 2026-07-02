@@ -16,7 +16,12 @@ from .core import (
     validate,
     validate_many,
 )
-from .fleet import validate_fleet
+from .fleet import (
+    column_analysis,
+    format_column_analysis,
+    reflect_fleet,
+    validate_fleet,
+)
 from .matrix import find_divergence, format_tenant_matrix
 from .model import (
     Finding,
@@ -35,6 +40,9 @@ __all__ = [
     "assert_schema",
     "validate_many",
     "validate_fleet",
+    "reflect_fleet",
+    "column_analysis",
+    "format_column_analysis",
     "format_matrix",
     "format_tenant_matrix",
     "find_divergence",
