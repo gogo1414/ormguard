@@ -128,6 +128,38 @@ python -m ormguard --url "$DATABASE_URL" --metadata myapp.db:Base \
     notify-webhook: ${{ secrets.SLACK_WEBHOOK }}
 ```
 
+The Action also runs the offline modes — test migrations with **no database in
+CI** and surface drift in the GitHub Security tab via SARIF:
+
+```yaml
+- uses: gogo1414/ormguard@v1
+  id: ormguard
+  with:
+    command: replay                     # or: check (with config: ormguard.toml)
+    migrations: migration/versions
+    metadata: myapp.db:Base
+    format: sarif
+    args: --tenant cafe24:shop_a --tenant larosee:larosee_co_kr
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: ${{ steps.ormguard.outputs.sarif-file }}
+```
+
+`format: github` instead prints inline `::error::` annotations, and
+`--format json|sarif|github` works on the CLI for `validate`, `replay`, and
+`check` alike.
+
+### Baselines — adopt on a legacy database without going red
+
+```bash
+python -m ormguard --url "$DB" --metadata myapp.db:Base --baseline .ormguard-baseline.json --write-baseline
+python -m ormguard --url "$DB" --metadata myapp.db:Base --baseline .ormguard-baseline.json  # only NEW drift fails
+```
+
+Works for `replay` too (fingerprints are tenant-scoped in multi-tenant runs),
+so CI ratchets: accepted drift stays quiet, new drift fails the build.
+
 ### Multi-tenant (one ORM, many databases)
 
 ```python
@@ -136,6 +168,24 @@ from ormguard import validate_many, format_matrix
 reports = validate_many({"larosee": e1, "hmall": e2, "cafe24": e3}, Base)
 print(format_matrix(reports))
 ```
+
+When tenants have genuinely different targets, go fleet-first — each tenant
+declares its own engine *and* its own Base(s) (`validate` also accepts a list
+of Bases, merged):
+
+```python
+from ormguard import validate_fleet, format_tenant_matrix, find_divergence
+
+reports = validate_fleet({
+    "larosee": (e1, [ServiceBase, MartBase]),
+    "cafe24":  (e2, ServiceBase),
+})
+print(format_tenant_matrix(reports))   # label × finding matrix + divergence
+```
+
+And before slimming a shared ETL model, ask what the fleet actually has in
+common — `column_analysis` reflects every tenant and reports, per table, the
+**intersection** (safe to map) vs partial columns (and which tenants have them).
 
 ### Offline migration replay — no database (v2)
 
@@ -191,6 +241,31 @@ schemas = ["aace_mart"]
 python -m ormguard check --config ormguard.toml   # exit 1 if any target drifts
 ```
 
+### From a flood of findings to a to-do list
+
+Real databases produce noisy first runs. ormguard has four levers:
+
+```python
+cfg = Config(
+    external_tables={"articles", "orders_mart"},         # ETL-owned: lenient (WARN, no extra-column noise)
+    server_managed_columns={"created_at", "updated_at"},  # DB-managed: skip nullable/default noise
+)
+report = validate(engine, Base, cfg)
+
+from ormguard import columns_in_sql, rank_findings, format_ranked, suggest_fixes, format_suggestions
+
+ranked = rank_findings(report, columns_in_sql(sql_log))  # code-referenced findings first
+print(format_ranked(ranked))
+print(format_suggestions(suggest_fixes(report, Base)))
+# column_missing @ users.nickname  ->  op.add_column("users", sa.Column("nickname", sa.String(50)))
+```
+
+Ownership tiers make ormguard a *contract* checker (you own the columns you
+map, not the whole warehouse table); usage ranking (feed it SQL from a query
+log or a SQLAlchemy listener) splits findings into code-referenced high
+priority vs unused low priority; and fix suggestions render the actual
+`op.add_column(...)` from your ORM's column type.
+
 ## What it checks (v1)
 
 | Finding | Default severity | Meaning |
@@ -206,6 +281,8 @@ python -m ormguard check --config ormguard.toml   # exit 1 if any target drifts
 | `fk_extra` | WARN (opt-in) | DB has a foreign key not declared in the ORM — off by default |
 | `default_missing` | WARN (opt-in) | ORM sets a server_default the DB column lacks — off by default |
 | `default_extra` | WARN (opt-in) | DB column has a default the ORM doesn't declare — off by default |
+| `enum_mismatch` | WARN (opt-in) | enum's allowed values differ between ORM and DB (native enums) |
+| `check_missing` / `check_extra` | WARN (opt-in) | named CHECK constraint present on one side only |
 
 Configurable via `Config`: restrict schemas, ignore tables/columns, flip
 severities, toggle nullable/type/index/foreign-key/default/extra checks.
@@ -217,10 +294,12 @@ local columns, referred table, and referred columns. Server-default checks
 (`--check-defaults`) compare only *whether* a DB default exists — not its value,
 which is too dialect-dependent — and skip primary keys. All keep false positives low.
 
-The **offline multi-tenant Alembic replay** mode (v2) additionally emits
+Views and materialized views backing an ORM-mapped name are reflected and
+compared (not false `table_missing`), with index/FK/CHECK checks skipped for
+them. The **offline multi-tenant Alembic replay** mode (v2) additionally emits
 `unparsed_migration_sql` (WARN) when replay cannot interpret raw SQL — the
-report never claims a false "clean". Planned next: check constraints, enums,
-downgrade replay.
+report never claims a false "clean". Planned next: downgrade replay, more
+dialect coverage.
 
 ## Develop
 
