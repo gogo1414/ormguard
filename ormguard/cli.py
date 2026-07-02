@@ -216,7 +216,18 @@ def _main_live(argv: list[str]) -> int:
         "--notify-on", choices=("error", "any"), default="error",
         help="send the webhook on 'error' findings (default) or on 'any' finding",
     )
+    parser.add_argument(
+        "--baseline",
+        help="baseline file of accepted findings; only NEW drift fails the run",
+    )
+    parser.add_argument(
+        "--write-baseline", action="store_true",
+        help="write the current findings to --baseline and exit 0 (snapshot accepted drift)",
+    )
     args = parser.parse_args(argv)
+
+    if args.write_baseline and not args.baseline:
+        parser.error("--write-baseline requires --baseline PATH")
 
     if args.selfcheck:
         from .selfcheck import run_selfcheck
@@ -233,6 +244,19 @@ def _main_live(argv: list[str]) -> int:
     target = _load_metadata(args.metadata)
     engine = create_engine(args.url)
     report = validate(engine, target, config)
+
+    if args.write_baseline:
+        from .baseline import report_fingerprints, save
+
+        fps = report_fingerprints(report)
+        save(fps, args.baseline)
+        print(f"ormguard: wrote baseline with {len(fps)} accepted finding(s) to {args.baseline}")
+        return 0
+
+    if args.baseline:
+        from .baseline import apply_baseline, load
+
+        report = apply_baseline(report, load(args.baseline))
 
     print(report.format_text())
 
