@@ -18,6 +18,9 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `validate` / `assert_schema` now accept a **list** of declarative Bases or
+  MetaData as the target (merged into one), so multi-Base apps no longer merge
+  metadata by hand. `validate_fleet` reuses this for per-tenant Bases. (#41)
 - Fleet-first multi-tenant validation (`validate_fleet`): each tenant declares
   its own `(engine, bases)` — different target *per tenant*, and multiple
   Bases per target are merged — unlike `validate_many` (N engines, one shared
