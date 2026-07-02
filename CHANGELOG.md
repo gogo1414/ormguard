@@ -18,6 +18,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Baseline / ratchet (`ormguard/baseline.py` + CLI `--baseline PATH` /
+  `--write-baseline`): snapshot accepted findings so CI fails only on **new**
+  drift, like a mypy/ESLint baseline. Fingerprints are `kind @ schema.table.column`
+  (severity/detail-independent, optionally label-scoped for per-tenant
+  acceptance) and the file is human-readable JSON. Lets legacy databases with
+  hundreds of known WARNs adopt ormguard without going red. (#37)
 - Views & materialized views are no longer false `table_missing`: an ORM-mapped
   name backed by a view or materialized view is reflected (columns compared) and
   marked (`TableInfo.relkind` / `is_view`) instead of reported as a missing
