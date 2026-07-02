@@ -42,7 +42,8 @@ adheres to [Semantic Versioning](https://semver.org/).
   `CONTRIBUTING.md`, `CHANGELOG.md`, `CLAUDE.md`.
 - Dependabot for pip and GitHub Actions.
 - Release workflow: publishes to PyPI via Trusted Publishing on `v*` tags.
-- Optional Gemini AI code review on pull requests (dormant until enabled).
+- CodeRabbit AI code review on pull requests (via the CodeRabbit GitHub App,
+  configured by `.coderabbit.yaml`).
 - CI failure notifications to Slack/Discord (dormant until a webhook is set).
 - `pre-commit` hooks: `ormguard-selfcheck` and `ormguard` for downstream users,
   plus a dev config (ruff + selfcheck).
