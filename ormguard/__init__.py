@@ -16,6 +16,8 @@ from .core import (
     validate,
     validate_many,
 )
+from .fleet import validate_fleet
+from .matrix import find_divergence, format_tenant_matrix
 from .model import (
     Finding,
     SchemaValidationError,
@@ -32,7 +34,10 @@ __all__ = [
     "validate",
     "assert_schema",
     "validate_many",
+    "validate_fleet",
     "format_matrix",
+    "format_tenant_matrix",
+    "find_divergence",
     "Config",
     "Severity",
     "Finding",

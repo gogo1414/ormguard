@@ -93,7 +93,7 @@ def test_matrix_marks_only_drifted_tenants(migrations_dir):
     assert "OK" in matrix
     assert "1 error(s)" in matrix
     # divergence section: finding hits a strict subset (larosee only)
-    assert "tenant divergence" in matrix
+    assert "divergence" in matrix
     assert "only on: larosee_co_kr" in matrix
 
 

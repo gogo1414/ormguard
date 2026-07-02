@@ -18,6 +18,12 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Fleet-first multi-tenant validation (`validate_fleet`): each tenant declares
+  its own `(engine, bases)` — different target *per tenant*, and multiple
+  Bases per target are merged — unlike `validate_many` (N engines, one shared
+  target). Reuses the label × finding matrix / `find_divergence` to surface
+  "column present on tenant A, absent on tenant B". The matrix helpers moved to
+  `ormguard.matrix` (re-exported from `ormguard.replay` for compatibility). (#35)
 - Baseline / ratchet (`ormguard/baseline.py` + CLI `--baseline PATH` /
   `--write-baseline`): snapshot accepted findings so CI fails only on **new**
   drift, like a mypy/ESLint baseline. Fingerprints are `kind @ schema.table.column`
