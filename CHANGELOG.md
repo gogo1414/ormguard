@@ -18,6 +18,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Machine-readable output (`ormguard/output.py` + CLI `--format
+  text|json|sarif|github`): `to_json`, `to_sarif` (SARIF 2.1.0 for GitHub code
+  scanning, one rule per finding kind, logical locations), and
+  `github_annotations` (`::error::` / `::warning::` workflow commands). All work
+  on a single report or a `{label: report}` map. (#44)
 - Cross-tenant column analysis (`reflect_fleet` + `column_analysis` /
   `format_column_analysis`): reflects each tenant's actual columns for the mapped
   tables and reports, per table, the **intersection** (columns present on every
