@@ -18,6 +18,11 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Fix suggestions (`ormguard/suggest.py`): `suggest_fixes(report, target)` turns
+  findings into actions keyed on ownership — an API-owned missing column → an
+  `op.add_column(...)` rendered from the ORM's real column type; an
+  externally-owned missing column → an ORM-slimming hint; a DB-only column →
+  map-or-drop. `format_suggestions` prints them. (#39)
 - Usage-aware ranking (`ormguard/usage.py`): `columns_in_sql` extracts the
   table/column identifiers your app actually queries (sqlglot, with a permissive
   fallback), and `rank_findings` / `format_ranked` split findings into
