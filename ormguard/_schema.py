@@ -13,6 +13,14 @@ class ColumnInfo:
     nullable: bool
     primary_key: bool = False
     has_server_default: bool = False   # a DB-side default exists (value not compared)
+    enum_values: tuple[str, ...] | None = None   # allowed values if this is an enum, else None
+
+
+@dataclass(frozen=True)
+class CheckConstraintInfo:
+    # CHECK constraints are compared by name only — the expression text is
+    # rewritten by each dialect on reflection, so comparing it produces noise.
+    name: str
 
 
 @dataclass(frozen=True)
@@ -51,6 +59,7 @@ class TableInfo:
     foreign_keys: dict[tuple[tuple[str, ...], str, tuple[str, ...]], ForeignKeyInfo] = field(
         default_factory=dict
     )
+    checks: dict[str, CheckConstraintInfo] = field(default_factory=dict)  # keyed by constraint name
 
     @property
     def key(self) -> tuple[str | None, str]:

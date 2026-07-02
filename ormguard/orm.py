@@ -2,8 +2,27 @@
 
 from __future__ import annotations
 
-from ._schema import ColumnInfo, ForeignKeyInfo, IndexInfo, TableInfo, type_to_string
+from sqlalchemy import CheckConstraint
+from sqlalchemy import Enum as SAEnum
+
+from ._schema import (
+    CheckConstraintInfo,
+    ColumnInfo,
+    ForeignKeyInfo,
+    IndexInfo,
+    TableInfo,
+    type_to_string,
+)
 from .config import Config
+
+
+def _enum_values(col_type) -> tuple[str, ...] | None:
+    """Allowed values if the column type is an enum, else None."""
+    if isinstance(col_type, SAEnum) or hasattr(col_type, "enums"):
+        values = getattr(col_type, "enums", None)
+        if values:
+            return tuple(values)
+    return None
 
 
 def build_expected(metadata, dialect, config: Config) -> dict[tuple[str | None, str], TableInfo]:
@@ -26,6 +45,7 @@ def build_expected(metadata, dialect, config: Config) -> dict[tuple[str | None, 
                 nullable=bool(col.nullable),
                 primary_key=bool(col.primary_key),
                 has_server_default=col.server_default is not None,
+                enum_values=_enum_values(col.type) if config.check_enums else None,
             )
 
         if config.check_indexes:
@@ -48,6 +68,13 @@ def build_expected(metadata, dialect, config: Config) -> dict[tuple[str | None, 
                     name=fkc.name or "",
                 )
                 info.foreign_keys[fk.key] = fk
+
+        if config.check_constraints:
+            for constraint in table.constraints:
+                # Only named CHECK constraints — unnamed ones can't be matched
+                # reliably against the DB's reflected (renamed) constraints.
+                if isinstance(constraint, CheckConstraint) and constraint.name:
+                    info.checks[constraint.name] = CheckConstraintInfo(name=constraint.name)
 
         tables[info.key] = info
     return tables

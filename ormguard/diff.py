@@ -5,10 +5,13 @@ from __future__ import annotations
 from ._schema import TableInfo
 from .config import Config
 from .model import (
+    CHECK_EXTRA,
+    CHECK_MISSING,
     COLUMN_EXTRA,
     COLUMN_MISSING,
     DEFAULT_EXTRA,
     DEFAULT_MISSING,
+    ENUM_MISMATCH,
     FK_EXTRA,
     FK_MISSING,
     INDEX_EXTRA,
@@ -123,6 +126,32 @@ def diff_schemas(
                         )
                     )
 
+            # Enum allowed-values comparison (opt-in). Only when both sides
+            # expose enum values (native enums on Postgres/MySQL).
+            if (
+                config.check_enums
+                and ecol.enum_values is not None
+                and acol.enum_values is not None
+                and set(ecol.enum_values) != set(acol.enum_values)
+            ):
+                missing = sorted(set(ecol.enum_values) - set(acol.enum_values))
+                extra = sorted(set(acol.enum_values) - set(ecol.enum_values))
+                parts = []
+                if missing:
+                    parts.append(f"missing in DB: {missing}")
+                if extra:
+                    parts.append(f"only in DB: {extra}")
+                findings.append(
+                    Finding(
+                        severity=config.severity_for(ENUM_MISMATCH, Severity.WARN),
+                        kind=ENUM_MISMATCH,
+                        schema=schema,
+                        table=table,
+                        column=cname,
+                        detail="enum values differ (" + "; ".join(parts) + ")",
+                    )
+                )
+
         # Columns in the DB that no entity maps.
         if config.flag_extra_columns:
             for cname in act.columns.keys() - exp.columns.keys():
@@ -198,6 +227,29 @@ def diff_schemas(
                             f"{fk.referred_table}({', '.join(fk.referred_columns)}) "
                             "not declared in the ORM"
                         ),
+                    )
+                )
+
+        # Named CHECK constraints (opt-in), compared by name only.
+        if config.check_constraints:
+            for cname in exp.checks.keys() - act.checks.keys():
+                findings.append(
+                    Finding(
+                        severity=config.severity_for(CHECK_MISSING, Severity.WARN),
+                        kind=CHECK_MISSING,
+                        schema=schema,
+                        table=table,
+                        detail=f"ORM declares CHECK constraint '{cname}' but the database has none",
+                    )
+                )
+            for cname in act.checks.keys() - exp.checks.keys():
+                findings.append(
+                    Finding(
+                        severity=config.severity_for(CHECK_EXTRA, Severity.WARN),
+                        kind=CHECK_EXTRA,
+                        schema=schema,
+                        table=table,
+                        detail=f"database has CHECK constraint '{cname}' not declared in the ORM",
                     )
                 )
 

@@ -5,9 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .model import (
+    CHECK_EXTRA,
+    CHECK_MISSING,
     COLUMN_EXTRA,
     DEFAULT_EXTRA,
     DEFAULT_MISSING,
+    ENUM_MISMATCH,
     FK_EXTRA,
     FK_MISSING,
     INDEX_EXTRA,
@@ -43,6 +46,8 @@ class Config:
     check_indexes: bool = False  # dialect-dependent; opt in. Compares by column set + uniqueness.
     check_foreign_keys: bool = False  # opt in. Compares by (columns, referred table, referred columns).
     check_server_defaults: bool = False  # opt in. Compares presence of a DB default, not its value.
+    check_constraints: bool = False  # opt in. Compares named CHECK constraints by name (not expression).
+    check_enums: bool = False  # opt in. Compares an enum column's allowed values.
     flag_extra_columns: bool = True  # DB columns not present on the entity.
 
     # Severity per kind — override to make e.g. nullable mismatches fatal.
@@ -57,6 +62,9 @@ class Config:
             FK_EXTRA: Severity.WARN,
             DEFAULT_MISSING: Severity.WARN,
             DEFAULT_EXTRA: Severity.WARN,
+            CHECK_MISSING: Severity.WARN,
+            CHECK_EXTRA: Severity.WARN,
+            ENUM_MISMATCH: Severity.WARN,
         }
     )
 
