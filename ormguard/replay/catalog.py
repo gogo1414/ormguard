@@ -15,12 +15,19 @@ _DIALECT = postgresql.dialect()
 
 
 def column_from_sa(col) -> ColumnInfo:
-    """Build a normalized ColumnInfo from a SQLAlchemy Column object."""
+    """Build a normalized ColumnInfo from a SQLAlchemy Column object.
+
+    Carries the same metadata the v1 diff compares (server-default presence and
+    enum values), so a replayed catalog matches a reflected one when
+    ``check_server_defaults`` / ``check_enums`` are enabled."""
+    enums = getattr(getattr(col, "type", None), "enums", None)
     return ColumnInfo(
         name=col.name,
         type_str=type_to_string(col.type, _DIALECT),
         nullable=bool(getattr(col, "nullable", True)),
         primary_key=bool(getattr(col, "primary_key", False)),
+        has_server_default=getattr(col, "server_default", None) is not None,
+        enum_values=tuple(enums) if enums else None,
     )
 
 
@@ -83,6 +90,8 @@ class Catalog:
             type_str=type_str if type_str is not None else existing.type_str,
             nullable=existing.nullable if nullable is None else bool(nullable),
             primary_key=existing.primary_key,
+            has_server_default=existing.has_server_default,
+            enum_values=existing.enum_values,
         )
         if new_column_name and new_column_name != column:
             info.columns.pop(column, None)

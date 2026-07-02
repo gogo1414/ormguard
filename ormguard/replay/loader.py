@@ -48,10 +48,17 @@ def discover_migrations(migrations_dir: str | Path) -> dict[str, ModuleType]:
 
 def order_migrations(modules: dict[str, ModuleType]) -> list[ModuleType]:
     """Topologically sort revisions root -> head (Kahn's algorithm)."""
-    # Build dependency edges only among known revisions.
-    deps: dict[str, set[str]] = {
-        rev: {d for d in _down_set(m) if d in modules} for rev, m in modules.items()
-    }
+    # Build dependency edges, failing loudly on a down_revision we never loaded
+    # (a broken chain) rather than silently treating that revision as a root.
+    deps: dict[str, set[str]] = {}
+    for rev, m in modules.items():
+        downs = _down_set(m)
+        unknown = {d for d in downs if d not in modules}
+        if unknown:
+            raise ValueError(
+                f"migration {rev!r} references unknown down_revision(s): {sorted(unknown)}"
+            )
+        deps[rev] = downs
     indegree = {rev: len(d) for rev, d in deps.items()}
     children: dict[str, list[str]] = {rev: [] for rev in modules}
     for rev, ds in deps.items():

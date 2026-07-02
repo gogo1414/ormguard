@@ -110,6 +110,66 @@ def test_validate_migrations_detects_orm_only_column(migrations_dir):
     assert report.has_errors()
 
 
+def test_dangling_down_revision_raises():
+    class M:
+        def __init__(self, rev, down):
+            self.revision = rev
+            self.down_revision = down
+            self.upgrade = lambda: None
+
+    # "B" points at "A", but "A" was never loaded -> broken chain, not a root.
+    mods = {"B": M("B", "A"), "C": M("C", "B")}
+    with pytest.raises(ValueError, match="unknown down_revision"):
+        order_migrations(mods)
+
+
+BATCH_MIG = '''
+from alembic import op
+import sqlalchemy as sa
+revision = "0001"
+down_revision = None
+def upgrade():
+    op.create_table("t", sa.Column("id", sa.Integer(), primary_key=True))
+    with op.batch_alter_table("t") as batch_op:
+        batch_op.add_column(sa.Column("code", sa.String(10), nullable=False))
+        batch_op.create_unique_constraint("uq_t_code", ["code"])
+        batch_op.create_check_constraint("ck_t_code", "code <> ''")
+'''
+
+
+def test_batch_constraint_ops_do_not_crash(tmp_path: Path):
+    d = tmp_path / "versions"
+    d.mkdir()
+    (d / "0001_batch.py").write_text(textwrap.dedent(BATCH_MIG))
+    catalog = replay_migrations(d)
+    # The batch constraint calls are accepted; the column change still applies.
+    assert set(catalog.tables[(None, "t")].columns) == {"id", "code"}
+
+
+ENUM_MIG = '''
+from alembic import op
+import sqlalchemy as sa
+revision = "0001"
+down_revision = None
+def upgrade():
+    op.create_table(
+        "t",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("status", sa.Enum("active", "inactive", name="status_enum"),
+                  server_default="active", nullable=False),
+    )
+'''
+
+
+def test_replay_preserves_enum_and_server_default(tmp_path: Path):
+    d = tmp_path / "versions"
+    d.mkdir()
+    (d / "0001_enum.py").write_text(textwrap.dedent(ENUM_MIG))
+    col = replay_migrations(d).tables[(None, "t")].columns["status"]
+    assert col.enum_values == ("active", "inactive")
+    assert col.has_server_default is True
+
+
 def test_topo_order_handles_branch_and_merge():
     # Diamond: A -> {B, C} -> D(merge). Build fake modules.
     class M:

@@ -6,10 +6,10 @@ Injected into each migration module's globals as ``op`` before calling
 constraints/indexes are accepted and ignored (they don't change column
 presence, which is what v1's diff cares about).
 
-Branch inputs (``op.get_bind().engine.url.database`` and
-``context.get_x_argument()``) are served from a fixed tenant profile so
-conditional migrations execute the right branch. With the default (empty)
-profile, replay follows the unconditional path — enough for M1.
+Conditional migrations that branch on ``op.get_bind().engine.url.database`` are
+served from a fixed tenant profile (``database_name``). With the default (empty)
+profile, replay follows the unconditional path — enough for M1. Branching on
+``context.get_x_argument()`` is not served yet (added in M2).
 """
 
 from __future__ import annotations
@@ -123,7 +123,13 @@ class _BatchOp:
     def alter_column(self, column, **kw):
         self._op.alter_column(self._table, column, schema=self._schema, **kw)
 
+    # Constraint/index ops don't change column presence — accept and ignore,
+    # mirroring OpRecorder so batch blocks using them don't AttributeError.
     def create_index(self, *a, **k): pass
     def drop_index(self, *a, **k): pass
     def create_foreign_key(self, *a, **k): pass
     def drop_constraint(self, *a, **k): pass
+    def create_unique_constraint(self, *a, **k): pass
+    def create_primary_key(self, *a, **k): pass
+    def create_check_constraint(self, *a, **k): pass
+    def bulk_insert(self, *a, **k): pass
