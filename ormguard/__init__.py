@@ -30,6 +30,7 @@ from .model import (
     ValidationReport,
 )
 from .output import github_annotations, to_json, to_sarif
+from .suggest import Suggestion, format_suggestions, suggest_fixes
 from .usage import columns_in_sql, format_ranked, rank_findings
 
 try:
@@ -54,6 +55,9 @@ __all__ = [
     "columns_in_sql",
     "rank_findings",
     "format_ranked",
+    "suggest_fixes",
+    "format_suggestions",
+    "Suggestion",
     "Config",
     "Severity",
     "Finding",
