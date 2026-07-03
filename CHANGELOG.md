@@ -18,6 +18,20 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `--format text|json|sarif|github` on `ormguard replay` and `ormguard check`
+  (previously live-mode only), and `--baseline` / `--write-baseline` on
+  `ormguard replay` — baseline fingerprints are tenant-scoped in multi-tenant
+  runs, so drift can be accepted per tenant. `check --format json|sarif|github`
+  emits one combined document with target-qualified labels
+  (`<target>:<tenant>`). CI can now produce SARIF from migrations alone — no
+  database.
+- GitHub Action v2: new `command` input (`validate` | `replay` | `check`) plus
+  `migrations`, `config`, `format`, and `baseline` inputs. `format: sarif`
+  writes `ormguard.sarif` and exposes it as the `sarif-file` output for
+  `github/codeql-action/upload-sarif`; `format: github` emits inline workflow
+  annotations. `database-url` is now only required for `command: validate`, and
+  the default install includes the `replay`/`config` extras.
+
 - Fix suggestions (`ormguard/suggest.py`): `suggest_fixes(report, target)` turns
   findings into actions keyed on ownership — an API-owned missing column → an
   `op.add_column(...)` rendered from the ORM's real column type; an

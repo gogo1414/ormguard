@@ -176,13 +176,24 @@ def run_target(target: Target, base_dir: Path) -> dict[str, ValidationReport]:
     return {target.name: validate(engine, metadata, target.config, label=target.name)}
 
 
-def run_config(path: str | Path, *, only: list[str] | None = None, warn_only: bool = False) -> int:
+def run_config(
+    path: str | Path,
+    *,
+    only: list[str] | None = None,
+    warn_only: bool = False,
+    fmt: str = "text",
+) -> int:
     """Run every target in the config file and print a combined report.
+
+    ``fmt`` selects the output: ``text`` (per-target sections, default) or one
+    combined machine-readable document — ``json`` / ``sarif`` / ``github`` —
+    with every report keyed ``<target>`` (or ``<target>:<tenant>`` for
+    multi-tenant replay targets).
 
     Returns the process exit code: 1 if any target has ERROR findings (0 with
     ``warn_only``).
     """
-    from .replay.report import format_tenant_matrix
+    from .matrix import format_tenant_matrix
 
     path = Path(path)
     targets = load_targets(path)
@@ -193,15 +204,37 @@ def run_config(path: str | Path, *, only: list[str] | None = None, warn_only: bo
         targets = [t for t in targets if t.name in only]
 
     failed = False
+    combined: dict[str, object] = {}
     for target in targets:
         reports = run_target(target, path.parent)
-        print(f"== {target.name} ({target.mode}) ==")
-        if len(reports) > 1:
-            print(format_tenant_matrix(reports))
+        if fmt == "text":
+            print(f"== {target.name} ({target.mode}) ==")
+            if len(reports) > 1:
+                print(format_tenant_matrix(reports))
+            else:
+                print(next(iter(reports.values())).format_text())
+            print()
         else:
-            print(next(iter(reports.values())).format_text())
-        print()
+            for label, report in reports.items():
+                key = target.name if label == target.name else f"{target.name}:{label}"
+                # Re-label with the qualified key so json/sarif/github output
+                # keeps the target context, not just the tenant name.
+                combined[key] = ValidationReport(findings=report.findings, label=key)
         failed = failed or any(r.has_errors() for r in reports.values())
+
+    if fmt == "json":
+        from .output import to_json
+
+        print(to_json(combined))
+    elif fmt == "sarif":
+        from .output import to_sarif
+
+        print(to_sarif(combined))
+    elif fmt == "github":
+        from .output import github_annotations
+
+        for line in github_annotations(combined):
+            print(line)
 
     return 1 if (failed and not warn_only) else 0
 

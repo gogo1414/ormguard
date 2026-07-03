@@ -1,32 +1,59 @@
 name: "ormguard"
-description: "Fail-fast schema validation for SQLAlchemy — validate a database against your ORM in CI."
+description: "Fail-fast schema validation for SQLAlchemy — validate a live database, replay migrations offline, or run a multi-target config in CI."
 branding:
   icon: "database"
   color: "blue"
 
 inputs:
+  command:
+    description: "What to run: 'validate' (live DB, default), 'replay' (offline migration replay — no database), or 'check' (multi-target ormguard.toml)."
+    required: false
+    default: "validate"
   database-url:
-    description: "SQLAlchemy database URL to validate against."
-    required: true
+    description: "SQLAlchemy database URL (required for command: validate)."
+    required: false
+    default: ""
   metadata:
-    description: "ORM metadata as 'package.module:attr' (a declarative Base or MetaData)."
-    required: true
+    description: "ORM metadata as 'package.module:attr' (required for validate and replay)."
+    required: false
+    default: ""
+  migrations:
+    description: "Migrations directory, e.g. 'migration/versions' (required for command: replay)."
+    required: false
+    default: ""
+  config:
+    description: "Path to the multi-target config file (command: check). Default: ormguard.toml."
+    required: false
+    default: "ormguard.toml"
+  format:
+    description: "Output format: text (default), json, sarif, or github. 'sarif' also writes ormguard.sarif (see the sarif-file output) for github/codeql-action/upload-sarif; 'github' emits inline workflow annotations."
+    required: false
+    default: "text"
+  baseline:
+    description: "Baseline file of accepted findings — only NEW drift fails the run (validate and replay)."
+    required: false
+    default: ""
   args:
-    description: "Extra ormguard CLI flags, e.g. '--schema public --check-indexes'."
+    description: "Extra ormguard CLI flags, e.g. '--schema public --check-indexes' or '--tenant cafe24:shop_a --tenant larosee:larosee_co_kr'."
     required: false
     default: ""
   notify-webhook:
-    description: "Slack/Discord incoming webhook to POST the report to when drift is found."
+    description: "Slack/Discord incoming webhook to POST the report to when drift is found (command: validate)."
     required: false
     default: ""
   version:
-    description: "pip install target for ormguard (e.g. 'ormguard==0.1.0', or a VCS URL until it's on PyPI)."
+    description: "pip install target for ormguard (e.g. 'ormguard[replay]==0.2.0', or a VCS URL)."
     required: false
-    default: "ormguard"
+    default: "ormguard[replay,config]"
   python-version:
     description: "Python version used to run ormguard."
     required: false
     default: "3.12"
+
+outputs:
+  sarif-file:
+    description: "Path to the SARIF report (only when format: sarif) — pass to github/codeql-action/upload-sarif."
+    value: ${{ steps.run.outputs.sarif-file }}
 
 runs:
   using: "composite"
@@ -36,19 +63,50 @@ runs:
         python-version: ${{ inputs.python-version }}
     - shell: bash
       run: pip install "${{ inputs.version }}"
-    - shell: bash
+    - id: run
+      shell: bash
       # database-url and notify-webhook are passed via env so their secrets
       # aren't rendered into the run command in the logs.
       env:
+        ORMGUARD_COMMAND: ${{ inputs.command }}
         ORMGUARD_DATABASE_URL: ${{ inputs.database-url }}
+        ORMGUARD_METADATA: ${{ inputs.metadata }}
+        ORMGUARD_MIGRATIONS: ${{ inputs.migrations }}
+        ORMGUARD_CONFIG: ${{ inputs.config }}
+        ORMGUARD_FORMAT: ${{ inputs.format }}
+        ORMGUARD_BASELINE: ${{ inputs.baseline }}
         ORMGUARD_NOTIFY_WEBHOOK: ${{ inputs.notify-webhook }}
         ORMGUARD_EXTRA_ARGS: ${{ inputs.args }}
       run: |
-        extra=""
-        if [ -n "$ORMGUARD_NOTIFY_WEBHOOK" ]; then
-          extra="--notify-webhook $ORMGUARD_NOTIFY_WEBHOOK"
+        set -o pipefail
+        cmd=(python -m ormguard)
+        case "$ORMGUARD_COMMAND" in
+          validate)
+            if [ -z "$ORMGUARD_DATABASE_URL" ] || [ -z "$ORMGUARD_METADATA" ]; then
+              echo "::error::command: validate requires the database-url and metadata inputs" && exit 1
+            fi
+            cmd+=(--url "$ORMGUARD_DATABASE_URL" --metadata "$ORMGUARD_METADATA")
+            [ -n "$ORMGUARD_NOTIFY_WEBHOOK" ] && cmd+=(--notify-webhook "$ORMGUARD_NOTIFY_WEBHOOK")
+            [ -n "$ORMGUARD_BASELINE" ] && cmd+=(--baseline "$ORMGUARD_BASELINE")
+            ;;
+          replay)
+            if [ -z "$ORMGUARD_MIGRATIONS" ] || [ -z "$ORMGUARD_METADATA" ]; then
+              echo "::error::command: replay requires the migrations and metadata inputs" && exit 1
+            fi
+            cmd=(python -m ormguard replay --migrations "$ORMGUARD_MIGRATIONS" --metadata "$ORMGUARD_METADATA" --pythonpath .)
+            [ -n "$ORMGUARD_BASELINE" ] && cmd+=(--baseline "$ORMGUARD_BASELINE")
+            ;;
+          check)
+            cmd=(python -m ormguard check --config "$ORMGUARD_CONFIG")
+            ;;
+          *)
+            echo "::error::unknown command '$ORMGUARD_COMMAND' (expected validate, replay, or check)" && exit 1
+            ;;
+        esac
+        cmd+=(--format "$ORMGUARD_FORMAT")
+        if [ "$ORMGUARD_FORMAT" = "sarif" ]; then
+          "${cmd[@]}" $ORMGUARD_EXTRA_ARGS | tee ormguard.sarif
+          echo "sarif-file=ormguard.sarif" >> "$GITHUB_OUTPUT"
+        else
+          "${cmd[@]}" $ORMGUARD_EXTRA_ARGS
         fi
-        python -m ormguard \
-          --url "$ORMGUARD_DATABASE_URL" \
-          --metadata "${{ inputs.metadata }}" \
-          $extra $ORMGUARD_EXTRA_ARGS

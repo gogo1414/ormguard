@@ -106,22 +106,36 @@ def _add_check_flags(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _print_report(report, fmt: str) -> None:
+def _print_report(reports, fmt: str) -> None:
+    """Print a single ValidationReport or a ``{label: report}`` map in ``fmt``."""
+    from .model import ValidationReport
+
     if fmt == "json":
         from .output import to_json
 
-        print(to_json(report))
+        print(to_json(reports))
     elif fmt == "sarif":
         from .output import to_sarif
 
-        print(to_sarif(report))
+        print(to_sarif(reports))
     elif fmt == "github":
         from .output import github_annotations
 
-        for line in github_annotations(report):
+        for line in github_annotations(reports):
             print(line)
+    elif isinstance(reports, ValidationReport):
+        print(reports.format_text())
     else:
-        print(report.format_text())
+        from .matrix import format_tenant_matrix
+
+        print(format_tenant_matrix(reports))
+
+
+def _add_format_flag(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--format", choices=("text", "json", "sarif", "github"), default="text",
+        help="output format: human text (default), json, SARIF 2.1.0, or GitHub annotations",
+    )
 
 
 def _config_from_args(args) -> Config:
@@ -162,9 +176,21 @@ def _main_replay(argv: list[str]) -> int:
         help="directory to prepend to sys.path before importing --metadata (repeatable)",
     )
     _add_check_flags(parser)
+    _add_format_flag(parser)
+    parser.add_argument(
+        "--baseline",
+        help="baseline file of accepted findings; only NEW drift fails the run",
+    )
+    parser.add_argument(
+        "--write-baseline", action="store_true",
+        help="write the current findings to --baseline and exit 0 (snapshot accepted drift)",
+    )
     args = parser.parse_args(argv)
 
-    from .replay import format_tenant_matrix, validate_migrations, validate_tenants
+    if args.write_baseline and not args.baseline:
+        parser.error("--write-baseline requires --baseline PATH")
+
+    from .replay import validate_migrations, validate_tenants
 
     _extend_pythonpath(args.pythonpath)
     config = _config_from_args(args)
@@ -176,17 +202,36 @@ def _main_replay(argv: list[str]) -> int:
 
     if len(tenants) > 1:
         reports = validate_tenants(target, args.migrations, tenants, config)
-        print(format_tenant_matrix(reports))
-        failed = any(r.has_errors() for r in reports.values())
     else:
         platform_type, database_name = tenants[0] if tenants else (None, None)
         report = validate_migrations(
             target, args.migrations, config,
             platform_type=platform_type, database_name=database_name,
         )
-        print(report.format_text())
-        failed = report.has_errors()
+        reports = {report.label or "default": report}
 
+    if args.write_baseline:
+        from .baseline import report_fingerprints, save
+
+        fps: list[str] = []
+        for label, rep in reports.items():
+            fps.extend(report_fingerprints(rep, label if len(reports) > 1 else None))
+        save(fps, args.baseline)
+        print(f"ormguard: wrote baseline with {len(set(fps))} accepted finding(s) to {args.baseline}")
+        return 0
+
+    if args.baseline:
+        from .baseline import apply_baseline, load
+
+        accepted = load(args.baseline)
+        reports = {
+            label: apply_baseline(rep, accepted, label if len(reports) > 1 else None)
+            for label, rep in reports.items()
+        }
+
+    _print_report(reports if len(reports) > 1 else next(iter(reports.values())), args.format)
+
+    failed = any(r.has_errors() for r in reports.values())
     return 1 if (failed and not args.warn_only) else 0
 
 
@@ -202,11 +247,12 @@ def _main_check(argv: list[str]) -> int:
     parser.add_argument("--config", default="ormguard.toml", help="path to config file (default: ormguard.toml)")
     parser.add_argument("--target", action="append", default=[], help="only run this named target (repeatable)")
     parser.add_argument("--warn-only", action="store_true", help="exit 0 even on errors (report only)")
+    _add_format_flag(parser)
     args = parser.parse_args(argv)
 
     from .configfile import run_config
 
-    return run_config(args.config, only=args.target or None, warn_only=args.warn_only)
+    return run_config(args.config, only=args.target or None, warn_only=args.warn_only, fmt=args.format)
 
 
 # ---------------------------------------------------------------------------
@@ -242,10 +288,7 @@ def _main_live(argv: list[str]) -> int:
         "--write-baseline", action="store_true",
         help="write the current findings to --baseline and exit 0 (snapshot accepted drift)",
     )
-    parser.add_argument(
-        "--format", choices=("text", "json", "sarif", "github"), default="text",
-        help="output format: human text (default), json, SARIF 2.1.0, or GitHub annotations",
-    )
+    _add_format_flag(parser)
     args = parser.parse_args(argv)
 
     if args.write_baseline and not args.baseline:
