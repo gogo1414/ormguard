@@ -6,6 +6,8 @@ adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-11
+
 ### Fixed
 
 - CLI no longer crashes with `UnicodeEncodeError` on legacy consoles (e.g.
@@ -177,5 +179,6 @@ adheres to [Semantic Versioning](https://semver.org/).
 - Checks: `table_missing`, `column_missing`, `column_extra`,
   `nullable_mismatch`, opt-in `type_mismatch`.
 
-[Unreleased]: https://github.com/gogo1414/ormguard/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/gogo1414/ormguard/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/gogo1414/ormguard/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/gogo1414/ormguard/releases/tag/v0.1.0
