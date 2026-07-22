@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # hatch-vcs needs tags to compute the version
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
@@ -48,7 +48,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # hatch-vcs needs tags to compute the version
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]" "psycopg[binary]"
@@ -78,7 +78,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # hatch-vcs needs tags to compute the version
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]" "PyMySQL"
